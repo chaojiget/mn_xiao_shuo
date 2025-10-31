@@ -1,0 +1,134 @@
+# 小说类型配置
+# 定义不同类型小说的评分权重和节奏参数
+
+scifi:
+  # 科幻小说配置
+  description: "硬派科幻，注重设定推演与证据链"
+
+  # 评分权重
+  scoring_weights:
+    playability:
+      puzzle_density: 0.3          # 谜题密度
+      skill_checks_variety: 0.2    # 技能检定多样性
+      failure_grace: 0.15          # 失败容错度
+      hint_latency: 0.15           # 提示延迟
+      exploit_resistance: 0.1      # 抗漏洞能力
+      reward_loop: 0.1             # 奖励反馈
+
+    narrative:
+      arc_progress: 0.25           # 故事线推进
+      theme_echo: 0.2              # 主题回响
+      conflict_gradient: 0.2       # 冲突梯度
+      payoff_debt: 0.15            # 伏笔偿还
+      scene_specificity: 0.1       # 场景具体性
+      pacing_smoothness: 0.1       # 节奏流畅性
+
+  # 节奏控制
+  pacing:
+    acts_per_volume: 10            # 每卷幕数
+    scenes_per_act: 3              # 每幕场景数
+    progress_check_interval: 12    # 进展检查间隔(章)
+    tension_curve:                 # 张力曲线
+      - [0, 0.3]    # 起始
+      - [0.25, 0.6] # 上升
+      - [0.5, 0.8]  # 高潮前
+      - [0.75, 0.95] # 高潮
+      - [1.0, 0.4]  # 结局
+
+  # 一致性规则
+  consistency_rules:
+    hard_rules:
+      - "能量守恒"
+      - "光速限制"
+      - "因果律"
+      - "技术树依赖"
+    soft_rules:
+      - "人物动机合理性"
+      - "社会制度逻辑性"
+
+  # 提示策略
+  hint_policy:
+    hint_latency: 2              # 停滞几回合后提示
+    explicit_ratio: 0.3          # 显性提示比例
+    red_herring_cap: 1           # 红鲱鱼上限
+    evidence_requirement: strict # 证据要求: strict/moderate/loose
+
+xianxia:
+  # 玄幻/仙侠小说配置
+  description: "修仙升级流，注重成长与爽感"
+
+  # 评分权重 (偏可玩性)
+  scoring_weights:
+    playability:
+      upgrade_frequency: 0.35      # 升级频率
+      resource_gain: 0.25          # 资源获取
+      combat_variety: 0.15         # 战斗多样性
+      reversal_satisfaction: 0.15  # 反转爽感
+      faction_expansion: 0.1       # 势力扩张
+
+    narrative:
+      dao_heart_evolution: 0.3     # 道心演化
+      karma_payoff: 0.25           # 因果偿还
+      relationship_depth: 0.2      # 关系深度
+      world_building: 0.15         # 世界构建
+      theme_resonance: 0.1         # 主题共鸣
+
+  # 节奏控制
+  pacing:
+    爽点间隔: 2                   # 章节
+    小战果间隔: 5                 # 章节
+    阶段跃迁: 25                  # 章节 (如筑基->金丹)
+    卷终高潮: 50                  # 章节
+
+    tension_curve:
+      - [0, 0.4]    # 入门
+      - [0.2, 0.6]  # 积累
+      - [0.5, 0.85] # 突破
+      - [0.8, 0.95] # 大战
+      - [1.0, 0.5]  # 新境界
+
+  # 境界系统
+  realm_system:
+    realms:
+      - name: "炼气期"
+        layers: 9
+        resource: "灵气"
+      - name: "筑基期"
+        layers: 9
+        resource: "真元"
+      - name: "金丹期"
+        layers: 9
+        resource: "法力"
+      # ... 更多境界
+
+    breakthrough_cost:
+      resource_multiplier: 10      # 资源需求倍数
+      danger_level: 0.3            # 失败风险
+      time_cost: "数月至数年"
+
+  # 一致性规则
+  consistency_rules:
+    hard_rules:
+      - "境界不可逆降(除特殊情况)"
+      - "功法需要配套资源"
+      - "因果业力守恒"
+      - "寿命与境界关联"
+    soft_rules:
+      - "越级挑战有代价"
+      - "天赋影响修炼速度"
+      - "机缘需要铺垫"
+
+  # 提示策略
+  hint_policy:
+    hint_latency: 1              # 快速反馈
+    explicit_ratio: 0.5          # 更多显性提示
+    red_herring_cap: 2           # 允许更多误导
+    evidence_requirement: moderate
+
+# 混合类型 (可扩展)
+hybrid:
+  description: "科幻修真融合"
+  scoring_weights:
+    playability: 0.6
+    narrative: 0.4
+  # 继承 scifi 和 xianxia 的部分特性

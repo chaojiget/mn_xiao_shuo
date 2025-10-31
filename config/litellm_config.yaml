@@ -1,0 +1,85 @@
+# LiteLLM 模型路由配置 - 使用 OpenRouter
+# 文档: https://docs.litellm.ai/
+# OpenRouter 文档: https://openrouter.ai/docs
+
+model_list:
+  # === OpenRouter 模型 (推荐) ===
+
+  # Claude Sonnet 4.5 (主力模型 - 高质量)
+  - model_name: claude-sonnet
+    litellm_params:
+      model: openrouter/anthropic/claude-sonnet-4.5
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 8000
+      temperature: 0.7
+
+  # Claude Haiku (快速模型 - 简单任务)
+  - model_name: claude-haiku
+    litellm_params:
+      model: openrouter/anthropic/claude-3.5-haiku
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 4000
+      temperature: 0.6
+
+  # GPT-4 Turbo (备用模型)
+  - model_name: gpt-4
+    litellm_params:
+      model: openrouter/openai/gpt-4-turbo
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 4000
+      temperature: 0.7
+
+  # DeepSeek V3 (超高性价比 - 中文友好)
+  - model_name: deepseek
+    litellm_params:
+      model: openrouter/deepseek/deepseek-chat-v3-0324
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 4000
+      temperature: 0.7
+
+  # Qwen 2.5 (高性价比 - 中文优化)
+  - model_name: qwen
+    litellm_params:
+      model: openrouter/qwen/qwen-2.5-72b-instruct
+      api_key: ${OPENROUTER_API_KEY}
+      api_base: https://openrouter.ai/api/v1
+      max_tokens: 4000
+      temperature: 0.7
+
+  # === 直接 API (可选,如果你有直接 API key) ===
+
+  # # Claude Sonnet (Anthropic 直连)
+  # - model_name: claude-sonnet-direct
+  #   litellm_params:
+  #     model: anthropic/claude-sonnet-4-5-20250929
+  #     api_key: ${ANTHROPIC_API_KEY}
+  #     max_tokens: 8000
+  #     temperature: 0.7
+
+# 路由设置
+router_settings:
+  # 路由策略: least-busy, usage-based, latency-based, simple-shuffle
+  routing_strategy: least-busy
+
+  # 重试策略
+  num_retries: 3
+  timeout: 120  # 秒
+
+  # 并发限制
+  default_max_parallel_requests: 10
+
+# LiteLLM 全局设置
+litellm_settings:
+  drop_params: true      # 自动移除不支持的参数
+  set_verbose: false     # 生产环境关闭详细日志
+  # set_verbose: true    # 开发时可打开查看详细信息
+
+# 成本优化建议 (注释)
+# - 简单任务: 使用 claude-haiku / deepseek / qwen (便宜10倍+)
+# - 复杂任务: 使用 claude-sonnet / gpt-4
+# - 中文内容: 优先使用 deepseek / qwen (中文效果更好)
+# - 批量生成: 使用 deepseek (性价比最高)

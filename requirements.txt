@@ -1,0 +1,42 @@
+# Core Dependencies
+python-dotenv>=1.0.0
+pydantic>=2.5.0
+pyyaml>=6.0
+
+# AI & LLM
+anthropic>=0.40.0
+litellm>=1.50.0
+openai>=1.50.0  # Optional, for fallback
+
+# MCP
+mcp>=1.7.1
+
+# Database
+sqlalchemy>=2.0.0
+psycopg2-binary>=2.9.9  # PostgreSQL driver
+alembic>=1.13.0  # Database migrations
+
+# Vector Database
+chromadb>=0.5.0
+# Alternative: faiss-cpu>=1.7.4
+
+# Web Framework (Optional, for API)
+fastapi>=0.115.0
+uvicorn[standard]>=0.30.0
+websockets>=12.0
+
+# Utilities
+aiofiles>=23.2.1
+httpx>=0.27.0
+tenacity>=8.2.3  # Retry logic
+
+# Development
+pytest>=8.0.0
+pytest-asyncio>=0.23.0
+black>=24.0.0
+ruff>=0.6.0
+mypy>=1.11.0
+
+# Monitoring & Logging
+structlog>=24.1.0
+rich>=13.7.0  # Beautiful CLI output

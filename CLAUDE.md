@@ -190,11 +190,7 @@ npm run lint
 - `DATABASE_URL`: SQLite 数据库路径
 - `LITELLM_CONFIG_PATH`: 可选,默认 `./config/litellm_config.yaml`
 
-### 4. 数据库设计
-
-**Schema文件:**
-- 核心schema: `database/schema/core.sql`
-- 世界脚手架schema: `database/schema/world_scaffold.sql`
+### 4. 数据库设计 (schema.sql)
 
 **关键表:**
 1. `novels`: 小说元数据

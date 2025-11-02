@@ -11,11 +11,15 @@ from pathlib import Path
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.llm import LiteLLMClient
 from src.utils.database import Database
 from src.models import WorldState, Character
-from chat_api import router as chat_router
-from generation_api import router as generation_router
+from api.chat_api import router as chat_router
+from api.generation_api import router as generation_router
+from api.game_api import router as game_router, init_game_engine
+from llm import create_backend, get_available_backends
+from llm.config_loader import LLMConfigLoader
+from api.world_api import router as world_router, init_world_services
+from database.world_db import WorldDatabase
 
 app = FastAPI(title="AI 小说生成器 API")
 
@@ -37,9 +41,16 @@ app.include_router(chat_router)
 # 注册自动生成路由
 app.include_router(generation_router)
 
+# 注册游戏路由
+app.include_router(game_router)
+
+# 注册世界管理路由
+app.include_router(world_router)
+
 # 全局状态（延迟初始化）
-llm_client = None
+llm_backend = None  # 改名为 llm_backend，使用新的抽象层
 db = None
+world_db = None
 
 
 class NovelCreateRequest(BaseModel):
@@ -59,21 +70,45 @@ class GenerateChapterRequest(BaseModel):
 @app.on_event("startup")
 async def startup():
     """启动时初始化"""
-    global llm_client, db
+    global llm_backend, db, world_db
 
     # 获取项目根目录
     project_root = Path(__file__).parent.parent.parent
 
-    # 初始化 LLM 客户端（使用绝对路径）
-    config_path = project_root / "config" / "litellm_config.yaml"
-    llm_client = LiteLLMClient(config_path=str(config_path))
-    print(f"✅ LLM 客户端已初始化 (配置: {config_path})")
+    # 初始化 LLM 后端（使用配置加载器）
+    config_loader = LLMConfigLoader()
+    backend_type = config_loader.get_backend_type()
+    backend_config = config_loader.get_backend_config()
+
+    # 打印配置摘要
+    config_loader.print_config_summary()
+
+    # 创建后端实例
+    llm_backend = create_backend(backend_type, backend_config)
+    print(f"✅ LLM 后端已初始化 (类型: {backend_type})")
+
+    # 打印后端信息
+    backend_info = llm_backend.get_backend_info()
+    print(f"   - 后端: {backend_info.get('backend', 'unknown')}")
+    print(f"   - 模型: {backend_info.get('model', 'unknown')}")
 
     # 初始化数据库
     db_path = project_root / "data" / "sqlite" / "novel.db"
     db = Database(db_path=str(db_path))
     db.connect()
     print(f"✅ 数据库已连接 (路径: {db_path})")
+
+    # 初始化世界数据库
+    world_db = WorldDatabase(db_path=str(db_path))
+    print(f"✅ 世界数据库已初始化")
+
+    # 初始化游戏引擎（传入后端实例和数据库路径）
+    init_game_engine(llm_backend, db_path=str(db_path))
+    print(f"✅ 游戏引擎已初始化")
+
+    # 初始化世界服务
+    init_world_services(world_db, llm_backend)
+    print(f"✅ 世界管理服务已初始化")
 
 
 @app.on_event("shutdown")
@@ -88,6 +123,12 @@ async def shutdown():
 async def root():
     """根路径"""
     return {"message": "AI 小说生成器 API", "status": "running"}
+
+
+@app.get("/health")
+async def health():
+    """健康检查"""
+    return {"message": "OK", "status": "running"}
 
 
 @app.get("/api/novels")
@@ -156,12 +197,15 @@ async def websocket_generate(websocket: WebSocket, novel_id: str):
                 prompt += f"\\n\\n用户选择: {user_choice}"
 
             try:
-                content = await llm_client.generate(
-                    prompt=prompt,
-                    model="deepseek",
-                    max_tokens=2000,
-                    temperature=0.8
+                # 使用新的后端抽象层
+                from llm.base import LLMMessage
+                messages = [LLMMessage(role="user", content=prompt)]
+                response = await llm_backend.generate(
+                    messages=messages,
+                    temperature=0.8,
+                    max_tokens=2000
                 )
+                content = response.content
 
                 # 保存章节
                 db.save_chapter(

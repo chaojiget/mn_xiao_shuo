@@ -21,11 +21,21 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
     try:
         import os
 
-        # 配置使用 LiteLLM + DeepSeek
-        # 方式 1: 使用 LiteLLM Proxy (如果启动了)
-        if os.getenv("USE_LITELLM_PROXY") == "true":
-            os.environ["ANTHROPIC_API_BASE"] = "http://localhost:4000"
-            os.environ["ANTHROPIC_API_KEY"] = "sk-proxy-key"  # 代理模式下任意值
+        # 配置使用 LiteLLM Proxy + DeepSeek
+        # 这些环境变量在 start_all_with_agent.sh 中已经设置好了
+        # ANTHROPIC_BASE_URL=http://0.0.0.0:4000
+        # ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
+        # ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+
+        # 确保环境变量已设置（如果未设置则使用默认值）
+        if not os.getenv("ANTHROPIC_BASE_URL"):
+            os.environ["ANTHROPIC_BASE_URL"] = "http://localhost:4000"
+        if not os.getenv("ANTHROPIC_AUTH_TOKEN"):
+            # 从 .env 读取 LITELLM_MASTER_KEY
+            master_key = os.getenv("LITELLM_MASTER_KEY", "sk-litellm-default")
+            os.environ["ANTHROPIC_AUTH_TOKEN"] = master_key
+        if not os.getenv("ANTHROPIC_MODEL"):
+            os.environ["ANTHROPIC_MODEL"] = "openrouter/deepseek/deepseek-chat-v3-0324"
 
         # 动态导入 Claude Agent SDK
         from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock

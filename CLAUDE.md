@@ -1,20 +1,40 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+# 使用中文和我交流
+# 注意文档目录的规划/管理
+# 直面问题，解决问题，不要试图绕过去，顺藤摸瓜找到问题
 
 ## 项目概述
 
 这是一个基于 AI 驱动的长篇小说生成系统,支持科幻和玄幻/仙侠两大类型。系统采用"全局导演"(Global Director)架构,通过事件线评分、一致性审计和线索经济管理来生成连贯的长篇小说。
 
-**最新更新(2025-01-31)**: 实现了完整的全局导演架构,包括:
+**最新更新(2025-11-02)**: 完成目录结构重组，实现清晰的分层架构
+
+**目录重组（最新）**:
+- ✅ 文档分类管理（features/setup/implementation/operations/troubleshooting/reference）
+- ✅ 脚本分类管理（start/dev/test）
+- ✅ 测试分类管理（integration/e2e/unit）
+- ✅ 后端分层架构（api/services/models/database/game）
+- ✅ 数据库schema集中管理（database/schema/）
+- 📖 详见: `docs/DIRECTORY_STRUCTURE.md` 和 `docs/MIGRATION_COMPLETE.md`
+
+**世界脚手架系统**:
+- ✅ 世界框架生成（主题、风格圣经、区域、派系）
+- ✅ 场景细化流水线（结构→感官→可供性→镜头，4个Pass）
+- ✅ 可供性chips交互（解决"不知道做什么"）
+- ✅ Canon固化机制（保证世界一致性）
+- ✅ 世界管理页面（Web UI，树状导航）
+- 📖 详见: `docs/features/WORLD_SCAFFOLD_GUIDE.md` 和 `docs/features/QUICK_START_WORLD.md`
+
+**全局导演架构**:
 - ✅ 可编辑设定系统(支持动态修改世界观、主角、路线)
 - ✅ NPC按需生成机制(seed→instantiate→engage→adapt→retire)
 - ✅ 事件线评分系统(可玩性/叙事/混合三种模式)
 - ✅ 线索经济管理(伏笔SLA、证据链验证、健康度监控)
 - ✅ 一致性审计系统(硬规则/因果/资源/角色/时间线检查)
 - ✅ 会话历史管理(完整记录、支持分支、智能上下文)
-
-详见: `docs/architecture/IMPROVEMENTS_SUMMARY.md` 和 `docs/QUICK_REFERENCE.md`
+- 📖 详见: `docs/architecture/IMPROVEMENTS_SUMMARY.md` 和 `docs/reference/QUICK_REFERENCE.md`
 
 ## 关键命令
 
@@ -37,8 +57,11 @@ python scripts/init_db.py
 ### 运行服务
 
 ```bash
-# 一键启动 Web 服务 (后端 + 前端)
-./web/start-web.sh
+# 一键启动完整系统 (LiteLLM Proxy + 后端 + 前端)
+./scripts/start/start_all_with_agent.sh
+
+# 停止所有服务
+./scripts/start/stop_all.sh
 
 # 或手动启动后端 (端口 8000)
 source .venv/bin/activate
@@ -57,13 +80,27 @@ python interactive_generator.py
 
 ```bash
 # 测试数据库连接
-python test_database.py
+python tests/integration/test_database.py
 
 # 测试 OpenRouter API
-python test_openrouter.py
+python tests/integration/test_openrouter.py
 
 # 测试完整设置
-python test_setup.py
+python tests/integration/test_setup.py
+
+# 端到端测试
+python tests/e2e/test_litellm_api.py
+python tests/e2e/test_world_scaffold.py
+```
+
+### 开发工具
+
+```bash
+# 检查服务状态
+./scripts/dev/check_services.sh
+
+# 查看日志
+./scripts/dev/view_logs.sh
 ```
 
 ### 前端开发
@@ -153,7 +190,11 @@ npm run lint
 - `DATABASE_URL`: SQLite 数据库路径
 - `LITELLM_CONFIG_PATH`: 可选,默认 `./config/litellm_config.yaml`
 
-### 4. 数据库设计 (schema.sql)
+### 4. 数据库设计
+
+**Schema文件:**
+- 核心schema: `database/schema/core.sql`
+- 世界脚手架schema: `database/schema/world_scaffold.sql`
 
 **关键表:**
 1. `novels`: 小说元数据
@@ -168,13 +209,21 @@ npm run lint
 **数据库工具:** `src/utils/database.py`
 - `Database` 类提供完整 CRUD 操作
 - 方法: `save_world_state()`, `save_chapter()`, `get_novel()`, etc.
+- 默认schema路径: `database/schema/core.sql`
 
 ### 5. Web 服务架构
 
-**后端 (FastAPI):**
+**后端 (FastAPI) - 分层架构:**
 - 入口: `web/backend/main.py`
 - 启动事件中初始化 LiteLLM 和 Database (使用绝对路径)
-- REST API: `/api/novels`, `/api/novels/{id}`, `/api/novels/{id}/chapters/{num}`
+- 目录结构:
+  - `api/`: API路由层 (chat_api, game_api, world_api, generation_api)
+  - `services/`: 业务逻辑层 (world_generator, scene_refinement, agent_generation)
+  - `game/`: 游戏引擎 (game_engine, game_tools, quests)
+  - `models/`: 数据模型 (world_models)
+  - `database/`: 数据库访问 (world_db)
+  - `llm/`: LLM集成层
+- REST API: `/api/novels`, `/api/game`, `/api/world`, `/api/chat`
 - WebSocket: `/ws/generate/{novel_id}` 用于实时章节生成
 - API 文档: http://localhost:8000/docs
 
@@ -182,11 +231,16 @@ npm run lint
 - 框架: Next.js 14 App Router + TypeScript
 - UI: shadcn/ui (基于 Radix UI)
 - 样式: Tailwind CSS
+- 页面结构:
+  - `app/page.tsx`: 主页面
+  - `app/chat/`: 聊天页面
+  - `app/game/`: 游戏页面
+  - `app/world/`: 世界管理页面
 - 组件结构:
-  - `app/page.tsx`: 主页面,包含 Tabs
-  - `components/novel/novel-generator.tsx`: 小说生成界面
-  - `components/novel/novel-list.tsx`: 小说列表
-  - `components/ui/*`: shadcn/ui 组件
+  - `components/chat/`: 聊天相关组件
+  - `components/novel/`: 小说相关组件
+  - `components/world/`: 世界管理组件
+  - `components/ui/`: shadcn/ui 组件
 
 ## 开发注意事项
 
@@ -305,15 +359,69 @@ model = "deepseek"  # 所有章节都用 DeepSeek
 - ❌ 完整的事件线生成与调度
 - ❌ 伏笔债务 SLA 检查
 
+## 目录结构
+
+项目采用清晰的分层目录结构:
+
+```
+mn_xiao_shuo/
+├── database/schema/          # 数据库schema文件
+├── docs/                     # 文档（分类管理）
+│   ├── features/            # 功能文档
+│   ├── setup/               # 设置指南
+│   ├── implementation/      # 实现细节
+│   ├── operations/          # 运维文档
+│   ├── troubleshooting/     # 故障排除
+│   └── reference/           # 参考文档
+├── scripts/                  # 脚本工具
+│   ├── start/               # 启动脚本
+│   ├── dev/                 # 开发工具
+│   └── test/                # 测试脚本
+├── tests/                    # 测试代码
+│   ├── integration/         # 集成测试
+│   └── e2e/                 # 端到端测试
+└── web/backend/              # 后端服务
+    ├── api/                 # API路由层
+    ├── services/            # 业务逻辑层
+    ├── game/                # 游戏引擎
+    ├── models/              # 数据模型
+    └── database/            # 数据库访问
+```
+
+详细说明: `docs/DIRECTORY_STRUCTURE.md`
+
 ## 相关文档
 
+**快速开始:**
 - `README.md`: 项目概览和快速开始
+- `docs/guides/QUICK_START.md`: 快速启动指南
+- `docs/guides/START_HERE.md`: 新手入门
+
+**架构设计:**
 - `docs/architecture/ARCHITECTURE.md`: 详细架构设计文档
 - `docs/architecture/PROJECT_SUMMARY.md`: 项目总结
-- `docs/guides/QUICK_START.md`: 快速启动指南
-- `docs/guides/OPENROUTER_SETUP.md`: OpenRouter 配置指南
-- `docs/guides/IMPLEMENTATION_GUIDE.md`: 实现指南
-- `web/QUICKSTART.md`: Web 服务快速启动指南
-- `web/STREAMING_IMPLEMENTATION.md`: 流式输出实现说明
-- `schema.sql`: 完整数据库 Schema
+- `docs/architecture/IMPROVEMENTS_SUMMARY.md`: 改进总结
+
+**功能文档:**
+- `docs/features/WORLD_SCAFFOLD_GUIDE.md`: 世界脚手架指南
+- `docs/features/QUEST_SYSTEM.md`: 任务系统
+- `docs/features/GAME_FEATURES.md`: 游戏功能
+
+**设置指南:**
+- `docs/setup/SETUP_COMPLETE.md`: 完整设置指南
+- `docs/guides/OPENROUTER_SETUP.md`: OpenRouter 配置
+- `docs/setup/LITELLM_PROXY_SETUP.md`: LiteLLM Proxy 设置
+
+**运维文档:**
+- `docs/operations/START_ALL_WITH_AGENT_GUIDE.md`: 启动脚本指南
+- `docs/operations/DEMO_EXPERIENCE_GUIDE.md`: 演示体验指南
+
+**故障排除:**
+- `docs/troubleshooting/TROUBLESHOOTING.md`: 故障排除指南
+- `docs/troubleshooting/BUG_FIXES.md`: Bug修复日志
+
+**参考:**
+- `docs/reference/QUICK_REFERENCE.md`: 快速参考
 - `docs/INDEX.md`: 完整文档索引
+- `docs/DIRECTORY_STRUCTURE.md`: 目录结构说明
+- `docs/MIGRATION_COMPLETE.md`: 目录重组报告

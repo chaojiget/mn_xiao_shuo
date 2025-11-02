@@ -12,12 +12,14 @@ from pathlib import Path
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.llm import LiteLLMClient
+from llm import create_backend
+from llm.config_loader import LLMConfigLoader
+from llm.base import LLMMessage
 
 router = APIRouter()
 
-# 全局 LLM 客户端
-llm_client = None
+# 全局 LLM 后端
+llm_backend = None
 
 
 class NovelSettings(BaseModel):
@@ -44,20 +46,21 @@ async def generate_stream_response(
     history: Optional[List[Dict[str, Any]]] = None
 ) -> AsyncGenerator[str, None]:
     """
-    生成流式响应 - 使用 LiteLLM + DeepSeek V3
+    生成流式响应 - 使用 LLM 后端抽象层
 
     Args:
         message: 用户消息
         novel_settings: 小说设定
         history: 对话历史
     """
-    global llm_client
+    global llm_backend
 
-    # 初始化 LLM 客户端
-    if llm_client is None:
-        project_root = Path(__file__).parent.parent.parent
-        config_path = project_root / "config" / "litellm_config.yaml"
-        llm_client = LiteLLMClient(config_path=str(config_path))
+    # 初始化 LLM 后端
+    if llm_backend is None:
+        config_loader = LLMConfigLoader()
+        backend_type = config_loader.get_backend_type()
+        backend_config = config_loader.get_backend_config()
+        llm_backend = create_backend(backend_type, backend_config)
 
     try:
         # 构建系统提示词
@@ -82,37 +85,30 @@ async def generate_stream_response(
 """
 
         # 构建消息列表
-        messages = []
+        llm_messages = []
 
         # 添加系统提示词
-        messages.append({"role": "system", "content": system_prompt})
+        llm_messages.append(LLMMessage(role="system", content=system_prompt))
 
         # 添加历史消息（保留最近 10 条）
         if history:
-            messages.extend(history[-10:])
+            for msg in history[-10:]:
+                llm_messages.append(LLMMessage(role=msg["role"], content=msg["content"]))
 
         # 添加当前用户消息
-        messages.append({"role": "user", "content": message})
+        llm_messages.append(LLMMessage(role="user", content=message))
 
-        # 调用 LiteLLM Router 的流式生成
-        response = await llm_client.router.acompletion(
-            model="deepseek",  # 使用 DeepSeek V3 模型
-            messages=messages,
+        # 调用后端的流式生成
+        async for chunk in llm_backend.generate_stream(
+            messages=llm_messages,
             temperature=0.8,
-            max_tokens=4000,
-            stream=True  # 启用流式输出
-        )
-
-        # 流式输出每一块内容
-        async for chunk in response:
-            if hasattr(chunk, 'choices') and len(chunk.choices) > 0:
-                delta = chunk.choices[0].delta
-                if hasattr(delta, 'content') and delta.content:
-                    data = {
-                        "type": "text",
-                        "content": delta.content
-                    }
-                    yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
+            max_tokens=4000
+        ):
+            data = {
+                "type": "text",
+                "content": chunk
+            }
+            yield f"data: {json.dumps(data, ensure_ascii=False)}\n\n"
 
         # 发送结束信号
         yield f"data: {json.dumps({'type': 'done'}, ensure_ascii=False)}\n\n"

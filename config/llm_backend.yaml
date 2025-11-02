@@ -1,0 +1,75 @@
+# LLM 后端配置
+# 选择要使用的后端: "litellm" 或 "claude"
+
+backend: "litellm"  # 默认使用 LiteLLM (成本低，支持多模型)
+
+# ========================================
+# 方案 1: LiteLLM 直接调用 (默认)
+# ========================================
+litellm:
+  proxy_url: "http://0.0.0.0:4000"  # LiteLLM Proxy 地址
+  config_path: "./config/litellm_config.yaml"  # LiteLLM 配置文件路径
+  model: "deepseek"  # 默认模型
+  temperature: 0.7
+  max_tokens: 1000
+
+# ========================================
+# 方案 2: Claude Agent SDK 直接调用 Claude API
+# ========================================
+# 需要: pip install claude-agent-sdk
+# 需要设置环境变量: ANTHROPIC_API_KEY
+claude:
+  use_litellm_proxy: false  # 不使用 LiteLLM 代理
+  api_key: ${ANTHROPIC_API_KEY}  # 从环境变量获取
+  model: "claude-sonnet-4-20250514"  # Claude Sonnet 4
+  temperature: 0.7
+  max_tokens: 4096
+  allowed_tools: ["Read", "Write", "Bash"]  # 允许的工具
+
+# ========================================
+# 方案 3: Claude Agent SDK + LiteLLM 代理 (推荐!)
+# ========================================
+# 这种方式结合了两者的优势:
+# - Claude Agent SDK 的 Agent 能力（工具、Hook等）
+# - LiteLLM 代理的多模型支持（可以用 DeepSeek/GPT/Qwen等）
+#
+# 步骤:
+# 1. 启动 LiteLLM 代理服务器:
+#    litellm --config ./config/litellm_config.yaml --port 4000
+#
+# 2. 设置环境变量:
+#    export LITELLM_MASTER_KEY="sk-litellm-your-key"
+#    export ANTHROPIC_BASE_URL="http://0.0.0.0:4000"
+#    export ANTHROPIC_AUTH_TOKEN="$LITELLM_MASTER_KEY"
+#
+# 3. 配置如下:
+#
+# claude:
+#   use_litellm_proxy: true  # 启用 LiteLLM 代理模式
+#   litellm_base_url: "http://0.0.0.0:4000"  # LiteLLM 代理地址
+#   litellm_auth_token: ${LITELLM_MASTER_KEY}  # 从环境变量获取
+#   model: "deepseek"  # 可以使用任何 LiteLLM 配置的模型
+#   temperature: 0.7
+#   max_tokens: 4096
+#   allowed_tools: ["Read", "Write", "Bash"]
+
+# ========================================
+# 性能说明
+# ========================================
+# 直接调用:
+# - litellm + deepseek: ~$0.001/回合，中文优秀
+# - litellm + qwen: ~$0.002/回合，中文优化
+# - claude (直接): ~$0.015/回合，英文最佳，成本高
+#
+# 通过 LiteLLM 代理:
+# - claude-agent-sdk + litellm-proxy + deepseek: ~$0.001/回合，Agent能力+低成本
+# - claude-agent-sdk + litellm-proxy + gpt-4: ~$0.020/回合，Agent能力+高质量
+
+# ========================================
+# 使用建议
+# ========================================
+# 1. 开发/测试: litellm + deepseek (便宜快速)
+# 2. 中文内容: litellm + deepseek/qwen
+# 3. 需要 Agent 能力但成本敏感: claude-agent-sdk + litellm-proxy + deepseek
+# 4. 需要 Agent 能力且质量优先: claude + claude API (直接)
+# 5. 生产环境: 根据预算和需求选择

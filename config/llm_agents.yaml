@@ -1,0 +1,130 @@
+# LLM Agents 配置文件
+# 支持为不同的 Agent 配置不同的模型
+
+# ========================================
+# 全局配置
+# ========================================
+global:
+  litellm_proxy_url: "http://0.0.0.0:4000"  # LiteLLM 代理地址
+  litellm_master_key: ${LITELLM_MASTER_KEY}  # 从环境变量获取
+  default_temperature: 0.7
+  default_max_tokens: 4096
+
+# ========================================
+# Agent 配置
+# ========================================
+agents:
+  # 游戏主持人 Agent (Game Master)
+  game_master:
+    backend: "claude"  # 使用 Claude Agent SDK
+    use_litellm_proxy: true  # 通过 LiteLLM 代理
+    model: "deepseek"  # 使用 DeepSeek 模型 (成本低,中文好)
+    temperature: 0.8  # 稍高的温度让叙事更有创意
+    max_tokens: 2000
+    allowed_tools:
+      - "Read"
+      - "Write"
+      - "Bash"
+    system_prompt: "你是一个专业的游戏主持人(Game Master)，负责创造沉浸式的游戏体验。"
+
+  # NPC 对话 Agent
+  npc_dialogue:
+    backend: "claude"
+    use_litellm_proxy: true
+    model: "qwen"  # 使用 Qwen 模型 (中文对话优化)
+    temperature: 0.9  # 更高的温度让NPC更有个性
+    max_tokens: 1000
+    allowed_tools: []  # NPC不需要工具调用
+    system_prompt: "你扮演游戏中的NPC，要有个性和情感。"
+
+  # 战斗系统 Agent
+  combat_system:
+    backend: "claude"
+    use_litellm_proxy: true
+    model: "deepseek"  # 使用 DeepSeek (逻辑清晰)
+    temperature: 0.5  # 较低温度保证战斗逻辑准确
+    max_tokens: 1500
+    allowed_tools:
+      - "Bash"  # 可能需要执行骰子逻辑
+    system_prompt: "你是战斗系统，负责计算伤害、判定结果等。"
+
+  # 任务系统 Agent
+  quest_manager:
+    backend: "claude"
+    use_litellm_proxy: true
+    model: "deepseek"  # 使用 DeepSeek
+    temperature: 0.6
+    max_tokens: 2000
+    allowed_tools:
+      - "Read"   # 读取任务配置
+      - "Write"  # 更新任务状态
+    system_prompt: "你是任务管理器，负责任务的触发、进度跟踪和奖励发放。"
+
+  # 世界生成 Agent
+  world_generator:
+    backend: "claude"
+    use_litellm_proxy: true
+    model: "claude-sonnet"  # 使用 Claude (高质量世界观)
+    temperature: 0.8
+    max_tokens: 3000
+    allowed_tools:
+      - "Write"  # 生成世界配置文件
+    system_prompt: "你是世界生成器，创造丰富的世界观、地点和历史。"
+
+  # 创意写作 Agent (高质量叙事)
+  creative_writer:
+    backend: "claude"
+    use_litellm_proxy: false  # 直接用 Claude API
+    model: "claude-sonnet-4-20250514"
+    temperature: 0.9
+    max_tokens: 4096
+    allowed_tools: []
+    system_prompt: "你是专业的创意作家，撰写高质量的叙事文本。"
+
+  # 代码生成 Agent
+  code_generator:
+    backend: "claude"
+    use_litellm_proxy: true
+    model: "gpt-4"  # 使用 GPT-4 (代码能力强)
+    temperature: 0.3  # 低温度保证代码准确
+    max_tokens: 2000
+    allowed_tools:
+      - "Read"
+      - "Write"
+      - "Bash"
+    system_prompt: "你是代码生成助手，生成高质量的 Python 代码。"
+
+# ========================================
+# 使用说明
+# ========================================
+# 1. 启动 LiteLLM 代理:
+#    litellm --config ./config/litellm_config.yaml --port 4000
+#
+# 2. 设置环境变量:
+#    export LITELLM_MASTER_KEY="sk-litellm-your-key"
+#
+# 3. 在代码中使用:
+#    config = load_agent_config("game_master")
+#    agent = create_agent_backend(config)
+#
+# 4. 每个 Agent 可以使用不同的模型和参数
+#    - game_master: deepseek (成本低,中文好)
+#    - npc_dialogue: qwen (中文对话优化)
+#    - world_generator: claude-sonnet (高质量创作)
+#    - code_generator: gpt-4 (代码能力强)
+
+# ========================================
+# 成本估算 (每天100次调用)
+# ========================================
+# game_master (deepseek):     100 * $0.001 = $0.10/天
+# npc_dialogue (qwen):         100 * $0.002 = $0.20/天
+# combat_system (deepseek):    50  * $0.001 = $0.05/天
+# quest_manager (deepseek):    30  * $0.001 = $0.03/天
+# world_generator (claude):    10  * $0.015 = $0.15/天
+# creative_writer (claude):    5   * $0.015 = $0.075/天
+# code_generator (gpt-4):      10  * $0.020 = $0.20/天
+#
+# 总计: ~$0.80/天 = $24/月
+#
+# 对比全部使用 Claude: ~$150/月
+# 节省: 84%

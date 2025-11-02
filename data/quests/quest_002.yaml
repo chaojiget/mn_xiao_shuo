@@ -1,0 +1,54 @@
+# 任务: 初次探险
+id: "first_adventure"
+title: "初次探险"
+description: "熟悉周围的环境，为未来的冒险做准备。"
+
+# 自动激活(游戏开始就有)
+triggers:
+  - type: "always"
+
+# 任务阶段
+stages:
+  - id: "look_around"
+    name: "环顾四周"
+    description: "观察你所在的位置"
+    conditions:
+      - type: "turn_count"
+        min: 1
+    hints:
+      - "试着输入'环顾四周'来观察周围"
+
+  - id: "check_inventory"
+    name: "检查背包"
+    description: "查看你拥有的物品"
+    conditions:
+      - type: "player_action"
+        action_contains: ["背包", "物品", "查看"]
+    hints:
+      - "输入'查看背包'来了解你有什么"
+
+  - id: "try_move"
+    name: "尝试移动"
+    description: "前往一个新地点"
+    conditions:
+      - type: "location_changed"
+        from: "start"
+    hints:
+      - "试着向某个方向移动"
+      - "比如'向北走'或'进入森林'"
+
+# 任务奖励
+rewards:
+  - type: "experience"
+    value: 20
+  - type: "flag"
+    flag: "tutorial_completed"
+  - type: "item"
+    item_id: "health_potion"
+    item_name: "治疗药水"
+    quantity: 2
+
+# 任务提示
+initial_hints:
+  - "这是你的第一次冒险"
+  - "慢慢探索，熟悉这个世界"

@@ -21,16 +21,43 @@
 
 ## 快速开始
 
-### Web 服务（推荐）
+### 🚀 一键启动（推荐）
 
 ```bash
-# 一键启动 Web 服务
-./web/start-web.sh
+# 启动完整系统（LiteLLM Proxy + Backend + Frontend）
+./start_all_with_agent.sh
 
-# 访问 http://localhost:3000 开始创作
+# 访问服务：
+# - 前端界面: http://localhost:3000
+# - API 文档: http://localhost:8000/docs
+# - LiteLLM Proxy: http://localhost:4000
 ```
 
-详见 [web/QUICKSTART.md](web/QUICKSTART.md)
+这会自动启动：
+- **LiteLLM Proxy** (端口 4000) - 使用 DeepSeek 模型，节省 90% 成本
+- **FastAPI Backend** (端口 8000) - 后端 API 服务
+- **Next.js Frontend** (端口 3000) - Web 界面
+
+详见 [docs/START_ALL_WITH_AGENT_GUIDE.md](docs/START_ALL_WITH_AGENT_GUIDE.md)
+
+### 检查服务状态
+
+```bash
+# 查看所有服务状态
+./check_services.sh
+
+# 查看日志
+tail -f logs/*.log
+```
+
+### 停止服务
+
+```bash
+# 停止所有服务
+./stop_all.sh
+
+# 或按 Ctrl+C
+```
 
 ### CLI 交互模式
 

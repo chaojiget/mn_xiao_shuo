@@ -52,7 +52,7 @@ class Database:
         """退出上下文"""
         self.close()
 
-    def init_schema(self, schema_file: str = "schema.sql"):
+    def init_schema(self, schema_file: str = "database/schema/core.sql"):
         """
         初始化数据库结构
 

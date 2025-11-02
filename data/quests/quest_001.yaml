@@ -1,0 +1,50 @@
+# 任务: 寻找失落的钥匙
+id: "find_cave_key"
+title: "寻找失落的钥匙"
+description: "据说在迷雾森林深处藏有一把古老的钥匙，它能打开神秘洞穴的大门。"
+
+# 任务激活条件
+triggers:
+  - type: "location"
+    location: "start"
+  - type: "flag_not_exists"
+    flag: "quest_find_cave_key_completed"
+
+# 任务阶段
+stages:
+  - id: "stage_1_explore"
+    name: "探索森林"
+    description: "前往迷雾森林探索"
+    conditions:
+      - type: "location"
+        location: "forest"
+    hints:
+      - "试着向北走，进入迷雾森林"
+      - "森林中可能藏有线索"
+
+  - id: "stage_2_find_key"
+    name: "找到钥匙"
+    description: "在森林中找到古老的钥匙"
+    conditions:
+      - type: "has_item"
+        item_id: "cave_key"
+    hints:
+      - "仔细搜索森林的每个角落"
+      - "也许需要进行某种检定才能发现隐藏的物品"
+
+# 任务奖励
+rewards:
+  - type: "experience"
+    value: 50
+  - type: "flag"
+    flag: "quest_find_cave_key_completed"
+  - type: "unlock_location"
+    location: "cave"
+
+# 任务失败条件(可选)
+fail_conditions: []
+
+# 任务提示
+initial_hints:
+  - "村口的老人提到过森林中的秘密"
+  - "那把钥匙据说能打开古老洞穴"

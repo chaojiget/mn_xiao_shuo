@@ -1,0 +1,42 @@
+"use client"
+
+import { useState } from "react"
+import { WorldManager } from "@/components/world/world-manager"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+
+export default function WorldPage() {
+  return (
+    <div className="container mx-auto py-8">
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold">世界管理</h1>
+        <p className="text-muted-foreground mt-2">
+          创建和管理小说世界脚手架：区域、地点、派系、物品等
+        </p>
+      </div>
+
+      <Tabs defaultValue="manager" className="w-full">
+        <TabsList>
+          <TabsTrigger value="manager">世界管理器</TabsTrigger>
+          <TabsTrigger value="generate">生成向导</TabsTrigger>
+          <TabsTrigger value="browser">浏览器</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="manager">
+          <WorldManager />
+        </TabsContent>
+
+        <TabsContent value="generate">
+          <div className="text-center text-muted-foreground py-12">
+            生成向导功能开发中...
+          </div>
+        </TabsContent>
+
+        <TabsContent value="browser">
+          <div className="text-center text-muted-foreground py-12">
+            浏览器功能开发中...
+          </div>
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}

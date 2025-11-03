@@ -11,17 +11,25 @@ import asyncio
 
 from ..game.game_engine import GameEngine, GameTurnRequest, GameTurnResponse
 from ..game.game_tools import GameState
+from ..services.save_service import SaveService
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
 # 全局游戏引擎实例（在启动时注入LLM客户端）
 game_engine: Optional[GameEngine] = None
 
+# 全局存档服务实例
+save_service: Optional[SaveService] = None
+
 
 def init_game_engine(llm_client, db_path: str = None):
-    """初始化游戏引擎"""
-    global game_engine
+    """初始化游戏引擎和存档服务"""
+    global game_engine, save_service
     game_engine = GameEngine(llm_client, db_path=db_path)
+
+    # 初始化存档服务
+    if db_path:
+        save_service = SaveService(db_path)
 
 
 # ==================== 请求/响应模型 ====================
@@ -34,6 +42,19 @@ class InitGameRequest(BaseModel):
 class GameTurnRequestModel(BaseModel):
     playerInput: str
     currentState: Dict[str, Any]  # GameState as dict
+
+
+class SaveGameRequest(BaseModel):
+    """保存游戏请求"""
+    user_id: str = "default_user"
+    slot_id: int  # 1-10
+    save_name: str
+    game_state: Dict[str, Any]
+
+
+class LoadGameRequest(BaseModel):
+    """加载游戏请求"""
+    save_id: int
 
 
 # ==================== API路由 ====================
@@ -170,3 +191,225 @@ async def get_available_tools():
     return {
         "tools": GameTools.get_tool_definitions()
     }
+
+
+# ==================== 存档系统 API (Phase 2) ====================
+
+@router.post("/save")
+async def save_game(request: SaveGameRequest):
+    """保存游戏到存档槽位
+
+    Args:
+        request: 包含 user_id, slot_id (1-10), save_name, game_state
+
+    Returns:
+        {
+            "success": true,
+            "save_id": int,
+            "slot_id": int,
+            "save_name": str,
+            "message": str
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        save_id = save_service.save_game(
+            user_id=request.user_id,
+            slot_id=request.slot_id,
+            save_name=request.save_name,
+            game_state=request.game_state,
+            auto_save=False
+        )
+
+        return {
+            "success": True,
+            "save_id": save_id,
+            "slot_id": request.slot_id,
+            "save_name": request.save_name,
+            "message": f"游戏已保存到槽位 {request.slot_id}"
+        }
+
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"保存游戏失败: {str(e)}")
+
+
+@router.get("/saves/{user_id}")
+async def get_saves(user_id: str = "default_user"):
+    """获取用户的所有存档列表
+
+    Args:
+        user_id: 用户ID，默认 "default_user"
+
+    Returns:
+        {
+            "success": true,
+            "saves": [
+                {
+                    "save_id": int,
+                    "slot_id": int,
+                    "save_name": str,
+                    "metadata": {...},
+                    "screenshot_url": str,
+                    "created_at": str,
+                    "updated_at": str
+                },
+                ...
+            ]
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        saves = save_service.get_saves(user_id)
+
+        return {
+            "success": True,
+            "saves": saves
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取存档列表失败: {str(e)}")
+
+
+@router.get("/save/{save_id}")
+async def load_game(save_id: int):
+    """加载游戏存档
+
+    Args:
+        save_id: 存档ID
+
+    Returns:
+        {
+            "success": true,
+            "game_state": {...},
+            "metadata": {...},
+            "save_info": {...}
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        save_data = save_service.load_game(save_id)
+
+        if not save_data:
+            raise HTTPException(status_code=404, detail=f"存档 {save_id} 不存在")
+
+        return {
+            "success": True,
+            **save_data
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"加载存档失败: {str(e)}")
+
+
+@router.delete("/save/{save_id}")
+async def delete_save(save_id: int):
+    """删除存档
+
+    Args:
+        save_id: 存档ID
+
+    Returns:
+        {
+            "success": true,
+            "message": str
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        deleted = save_service.delete_save(save_id)
+
+        if not deleted:
+            raise HTTPException(status_code=404, detail=f"存档 {save_id} 不存在")
+
+        return {
+            "success": True,
+            "message": f"存档 {save_id} 已删除"
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"删除存档失败: {str(e)}")
+
+
+@router.get("/save/{save_id}/snapshots")
+async def get_snapshots(save_id: int):
+    """获取存档的所有快照
+
+    Args:
+        save_id: 存档ID
+
+    Returns:
+        {
+            "success": true,
+            "snapshots": [
+                {
+                    "snapshot_id": int,
+                    "turn_number": int,
+                    "created_at": str
+                },
+                ...
+            ]
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        snapshots = save_service.get_snapshots(save_id)
+
+        return {
+            "success": True,
+            "snapshots": snapshots
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取快照列表失败: {str(e)}")
+
+
+@router.get("/auto-save/{user_id}")
+async def get_latest_auto_save(user_id: str = "default_user"):
+    """获取最新的自动保存
+
+    Args:
+        user_id: 用户ID
+
+    Returns:
+        {
+            "success": true,
+            "auto_save_id": int,
+            "game_state": {...},
+            "turn_number": int,
+            "created_at": str
+        }
+    """
+    if not save_service:
+        raise HTTPException(status_code=500, detail="存档服务未初始化")
+
+    try:
+        auto_save = save_service.get_latest_auto_save(user_id)
+
+        if not auto_save:
+            raise HTTPException(status_code=404, detail="没有自动保存记录")
+
+        return {
+            "success": True,
+            **auto_save
+        }
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取自动保存失败: {str(e)}")

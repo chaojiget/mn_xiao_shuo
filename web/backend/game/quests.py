@@ -6,7 +6,7 @@ import yaml
 from pathlib import Path
 from typing import Dict, List, Any, Optional
 from pydantic import BaseModel
-from game_tools import GameState, GameTools, Quest
+from .game_tools import GameState, GameTools, Quest
 
 
 class QuestCondition(BaseModel):

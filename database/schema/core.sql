@@ -285,3 +285,47 @@ CREATE TABLE IF NOT EXISTS characters (
 
 CREATE INDEX idx_characters_novel ON characters(novel_id);
 CREATE INDEX idx_characters_role ON characters(role);
+
+-- 11. 游戏存档表 (Phase 2)
+CREATE TABLE IF NOT EXISTS game_saves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL DEFAULT 'default_user',
+    slot_id INTEGER NOT NULL CHECK(slot_id >= 1 AND slot_id <= 10),
+    save_name TEXT NOT NULL,
+    game_state TEXT NOT NULL,              -- JSON格式的完整游戏状态
+    metadata TEXT,                          -- JSON格式的元数据 (turn_number, playtime, location, level)
+    screenshot_url TEXT,                    -- 存档截图URL（可选）
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    UNIQUE(user_id, slot_id)
+);
+
+CREATE INDEX idx_game_saves_user_id ON game_saves(user_id);
+CREATE INDEX idx_game_saves_slot ON game_saves(user_id, slot_id);
+
+-- 12. 存档快照表 (用于回滚，Phase 2)
+CREATE TABLE IF NOT EXISTS save_snapshots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    save_id INTEGER NOT NULL,
+    turn_number INTEGER NOT NULL,
+    snapshot_data TEXT NOT NULL,            -- JSON格式的状态快照
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    FOREIGN KEY (save_id) REFERENCES game_saves(id) ON DELETE CASCADE
+);
+
+CREATE INDEX idx_save_snapshots_save_id ON save_snapshots(save_id);
+CREATE INDEX idx_save_snapshots_turn ON save_snapshots(save_id, turn_number);
+
+-- 13. 自动保存记录表 (Phase 2)
+CREATE TABLE IF NOT EXISTS auto_saves (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    user_id TEXT NOT NULL,
+    game_state TEXT NOT NULL,              -- JSON格式的游戏状态
+    turn_number INTEGER NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX idx_auto_saves_user_id ON auto_saves(user_id);
+CREATE INDEX idx_auto_saves_created ON auto_saves(created_at);

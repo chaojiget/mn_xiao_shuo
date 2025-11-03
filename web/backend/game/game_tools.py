@@ -148,8 +148,14 @@ def roll_check(params: RollCheckParams) -> RollCheckResult:
 class GameTools:
     """游戏工具集 - 提供给Agent的函数接口"""
 
-    def __init__(self, state: GameState):
+    def __init__(self, state: GameState, db_manager=None):
+        """
+        Args:
+            state: 游戏状态
+            db_manager: 数据库管理器（用于存档功能，可选）
+        """
         self.state = state
+        self.db_manager = db_manager
 
     # ---------- 状态读取 ----------
 
@@ -340,12 +346,311 @@ class GameTools:
         result = roll_check(params)
         return result.model_dump()
 
+    # ---------- 任务系统增强 ----------
+
+    def create_quest(
+        self,
+        quest_id: str,
+        title: str,
+        description: str,
+        objectives: Optional[List[Dict[str, Any]]] = None
+    ) -> bool:
+        """创建新任务"""
+        # 检查任务是否已存在
+        if any(q.id == quest_id for q in self.state.quests):
+            return False
+
+        # 构建目标列表
+        quest_objectives = []
+        if objectives:
+            for obj in objectives:
+                quest_objectives.append(QuestObjective(
+                    id=obj.get("id", f"{quest_id}_obj_{len(quest_objectives)}"),
+                    description=obj.get("description", ""),
+                    completed=obj.get("completed", False),
+                    required=obj.get("required", True)
+                ))
+
+        # 创建任务
+        new_quest = Quest(
+            id=quest_id,
+            title=title,
+            description=description,
+            status="active",
+            objectives=quest_objectives
+        )
+        self.state.quests.append(new_quest)
+        return True
+
+    def complete_quest(self, quest_id: str, rewards: Optional[Dict[str, Any]] = None) -> bool:
+        """完成任务并发放奖励"""
+        for quest in self.state.quests:
+            if quest.id == quest_id:
+                quest.status = "completed"
+
+                # 发放奖励
+                if rewards:
+                    if "exp" in rewards:
+                        self.add_exp(rewards["exp"])
+                    if "gold" in rewards:
+                        self.state.player.money += rewards.get("gold", 0)
+                    if "items" in rewards:
+                        for item in rewards["items"]:
+                            self.add_item(
+                                item_id=item.get("id"),
+                                name=item.get("name"),
+                                quantity=item.get("quantity", 1)
+                            )
+                return True
+        return False
+
+    # ---------- 经验值与升级系统 ----------
+
+    def add_exp(self, amount: int) -> Dict[str, Any]:
+        """增加经验值，自动检测升级"""
+        # 确保玩家状态有经验值字段
+        if not hasattr(self.state.player, "exp"):
+            # 动态添加经验值字段
+            self.state.player.__dict__["exp"] = 0
+            self.state.player.__dict__["level"] = 1
+
+        old_exp = self.state.player.__dict__.get("exp", 0)
+        old_level = self.state.player.__dict__.get("level", 1)
+
+        new_exp = old_exp + amount
+        self.state.player.__dict__["exp"] = new_exp
+
+        # 检查是否升级（简单的经验值公式：每级需要 100 * level 经验）
+        exp_needed = self._calculate_exp_for_next_level(old_level)
+        leveled_up = False
+        new_level = old_level
+
+        while new_exp >= exp_needed:
+            new_exp -= exp_needed
+            new_level += 1
+            exp_needed = self._calculate_exp_for_next_level(new_level)
+            leveled_up = True
+
+        if leveled_up:
+            self.level_up(new_level)
+
+        return {
+            "old_exp": old_exp,
+            "new_exp": self.state.player.__dict__["exp"],
+            "old_level": old_level,
+            "new_level": self.state.player.__dict__["level"],
+            "leveled_up": leveled_up
+        }
+
+    def _calculate_exp_for_next_level(self, current_level: int) -> int:
+        """计算下一级所需经验值"""
+        return 100 * current_level
+
+    def level_up(self, new_level: int) -> Dict[str, Any]:
+        """升级（提升属性）"""
+        old_level = self.state.player.__dict__.get("level", 1)
+        self.state.player.__dict__["level"] = new_level
+
+        # 每级增加最大HP和体力
+        hp_gain = 10
+        stamina_gain = 5
+
+        old_max_hp = self.state.player.maxHp
+        old_max_stamina = self.state.player.maxStamina
+
+        self.state.player.maxHp += hp_gain * (new_level - old_level)
+        self.state.player.maxStamina += stamina_gain * (new_level - old_level)
+
+        # 完全恢复HP和体力
+        self.state.player.hp = self.state.player.maxHp
+        self.state.player.stamina = self.state.player.maxStamina
+
+        return {
+            "old_level": old_level,
+            "new_level": new_level,
+            "hp_gain": hp_gain * (new_level - old_level),
+            "stamina_gain": stamina_gain * (new_level - old_level),
+            "new_max_hp": self.state.player.maxHp,
+            "new_max_stamina": self.state.player.maxStamina
+        }
+
+    # ---------- 物品使用系统 ----------
+
+    def use_item(self, item_id: str) -> Dict[str, Any]:
+        """使用物品（仅消耗品）"""
+        item = self.get_inventory_item(item_id)
+        if not item:
+            return {"success": False, "message": "物品不存在"}
+
+        if item.type != "consumable":
+            return {"success": False, "message": "该物品无法使用"}
+
+        # 根据物品属性执行效果
+        effects = item.properties.get("effects", {})
+        result = {"success": True, "effects_applied": []}
+
+        if "hp" in effects:
+            hp_restored = effects["hp"]
+            self.update_hp(hp_restored)
+            result["effects_applied"].append(f"恢复 {hp_restored} HP")
+
+        if "stamina" in effects:
+            stamina_restored = effects["stamina"]
+            self.update_stamina(stamina_restored)
+            result["effects_applied"].append(f"恢复 {stamina_restored} 耐力")
+
+        if "buff" in effects:
+            buff = effects["buff"]
+            # 这里可以实现buff系统（暂时跳过）
+            result["effects_applied"].append(f"获得增益: {buff}")
+
+        # 消耗物品
+        self.remove_item(item_id, 1)
+        result["message"] = f"使用了 {item.name}"
+
+        return result
+
+    # ---------- 战斗系统 ----------
+
+    def roll_attack(
+        self,
+        weapon_bonus: int = 0,
+        advantage: bool = False
+    ) -> Dict[str, Any]:
+        """攻击检定（1d20 + 武器加成）"""
+        if advantage:
+            roll = max(random.randint(1, 20), random.randint(1, 20))
+        else:
+            roll = random.randint(1, 20)
+
+        total = roll + weapon_bonus
+        critical_hit = roll == 20
+        critical_miss = roll == 1
+
+        return {
+            "roll": roll,
+            "bonus": weapon_bonus,
+            "total": total,
+            "critical_hit": critical_hit,
+            "critical_miss": critical_miss,
+            "damage_multiplier": 2 if critical_hit else 1
+        }
+
+    def calculate_damage(
+        self,
+        base_damage: int,
+        attack_roll: Dict[str, Any],
+        armor_class: int = 10
+    ) -> Dict[str, Any]:
+        """计算伤害"""
+        hit = attack_roll["total"] >= armor_class
+
+        if not hit:
+            return {"hit": False, "damage": 0}
+
+        damage = base_damage * attack_roll.get("damage_multiplier", 1)
+
+        return {
+            "hit": True,
+            "damage": damage,
+            "critical": attack_roll.get("critical_hit", False)
+        }
+
     # ---------- 记忆查询 ----------
 
     def query_memory(self, query: str, limit: int = 5) -> List[GameLogEntry]:
         """查询游戏记忆（简单版：返回最近N条）"""
         # TODO: 实现向量检索或关键词匹配
         return self.state.log[-limit:]
+
+    # ---------- 存档系统 ----------
+
+    def save_game(
+        self,
+        slot_id: int,
+        save_name: str,
+        user_id: str = "default_user"
+    ) -> Dict[str, Any]:
+        """保存游戏到存档槽位"""
+        if not self.db_manager:
+            return {
+                "success": False,
+                "message": "存档功能未启用（需要数据库管理器）"
+            }
+
+        if not (1 <= slot_id <= 10):
+            return {
+                "success": False,
+                "message": "存档槽位必须在 1-10 之间"
+            }
+
+        try:
+            # 将GameState转换为字典
+            game_state_dict = self.state.model_dump()
+
+            # 保存到数据库
+            save_id = self.db_manager.save_game(
+                user_id=user_id,
+                slot_id=slot_id,
+                save_name=save_name,
+                game_state=game_state_dict
+            )
+
+            return {
+                "success": True,
+                "save_id": save_id,
+                "slot_id": slot_id,
+                "save_name": save_name,
+                "message": f"游戏已保存到槽位 {slot_id}"
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"保存失败: {str(e)}"
+            }
+
+    def load_game(self, save_id: int) -> Dict[str, Any]:
+        """加载存档"""
+        if not self.db_manager:
+            return {
+                "success": False,
+                "message": "存档功能未启用（需要数据库管理器）"
+            }
+
+        try:
+            save_data = self.db_manager.load_game(save_id)
+            if not save_data:
+                return {
+                    "success": False,
+                    "message": f"存档 {save_id} 不存在"
+                }
+
+            # 加载游戏状态
+            loaded_state = GameState(**save_data["game_state"])
+
+            # 更新当前状态（注意：这会完全替换状态）
+            self.state.__dict__.update(loaded_state.__dict__)
+
+            return {
+                "success": True,
+                "save_id": save_id,
+                "metadata": save_data["metadata"],
+                "message": "存档加载成功"
+            }
+
+        except Exception as e:
+            return {
+                "success": False,
+                "message": f"加载失败: {str(e)}"
+            }
+
+    def list_saves(self, user_id: str = "default_user") -> List[Dict[str, Any]]:
+        """列出所有存档"""
+        if not self.db_manager:
+            return []
+
+        return self.db_manager.get_saves(user_id)
 
     # ---------- 日志记录 ----------
 
@@ -471,6 +776,146 @@ class GameTools:
                         "hints": {"type": "array", "items": {"type": "string"}}
                     },
                     "required": ["quest_id"]
+                }
+            },
+            {
+                "name": "create_quest",
+                "description": "创建新任务",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "quest_id": {"type": "string", "description": "任务唯一ID"},
+                        "title": {"type": "string", "description": "任务标题"},
+                        "description": {"type": "string", "description": "任务描述"},
+                        "objectives": {
+                            "type": "array",
+                            "description": "任务目标列表",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "id": {"type": "string"},
+                                    "description": {"type": "string"},
+                                    "completed": {"type": "boolean"},
+                                    "required": {"type": "boolean"}
+                                }
+                            }
+                        }
+                    },
+                    "required": ["quest_id", "title", "description"]
+                }
+            },
+            {
+                "name": "complete_quest",
+                "description": "完成任务并发放奖励",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "quest_id": {"type": "string"},
+                        "rewards": {
+                            "type": "object",
+                            "description": "任务奖励",
+                            "properties": {
+                                "exp": {"type": "integer"},
+                                "gold": {"type": "integer"},
+                                "items": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "object",
+                                        "properties": {
+                                            "id": {"type": "string"},
+                                            "name": {"type": "string"},
+                                            "quantity": {"type": "integer"}
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    },
+                    "required": ["quest_id"]
+                }
+            },
+            {
+                "name": "add_exp",
+                "description": "增加经验值，自动检测升级",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "amount": {"type": "integer", "description": "经验值数量"}
+                    },
+                    "required": ["amount"]
+                }
+            },
+            {
+                "name": "use_item",
+                "description": "使用消耗品（恢复HP、体力等）",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "item_id": {"type": "string"}
+                    },
+                    "required": ["item_id"]
+                }
+            },
+            {
+                "name": "roll_attack",
+                "description": "进行攻击检定（用于战斗）",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "weapon_bonus": {"type": "integer", "default": 0},
+                        "advantage": {"type": "boolean", "default": False}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "calculate_damage",
+                "description": "根据攻击检定计算伤害",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "base_damage": {"type": "integer", "description": "基础伤害"},
+                        "attack_roll": {"type": "object", "description": "攻击检定结果"},
+                        "armor_class": {"type": "integer", "default": 10, "description": "目标护甲等级"}
+                    },
+                    "required": ["base_damage", "attack_roll"]
+                }
+            },
+            {
+                "name": "save_game",
+                "description": "保存游戏到指定存档槽位（1-10）",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "slot_id": {
+                            "type": "integer",
+                            "description": "存档槽位（1-10）",
+                            "minimum": 1,
+                            "maximum": 10
+                        },
+                        "save_name": {"type": "string", "description": "存档名称"}
+                    },
+                    "required": ["slot_id", "save_name"]
+                }
+            },
+            {
+                "name": "load_game",
+                "description": "加载指定存档",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {
+                        "save_id": {"type": "integer", "description": "存档ID"}
+                    },
+                    "required": ["save_id"]
+                }
+            },
+            {
+                "name": "list_saves",
+                "description": "列出所有存档",
+                "input_schema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
                 }
             }
         ]

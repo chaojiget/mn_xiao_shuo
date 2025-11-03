@@ -1,15 +1,42 @@
 # CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-# 使用中文和我交流
-# 注意文档目录的规划/管理
-# 直面问题，解决问题，不要试图绕过去，顺藤摸瓜找到问题
+
+# 核心工作原则
+
+## ⚠️ 最高优先级原则
+**严格遵循已有的技术规划和文档，不要擅自改变技术栈或架构决策**
+
+- ✅ 实施前必须仔细阅读相关文档（如 `docs/TECHNICAL_IMPLEMENTATION_PLAN.md`）
+- ✅ 如果文档明确规定使用某个技术栈，必须严格遵循
+- ✅ 如果需要偏离规划，必须先征得用户同意，说明原因
+- ❌ 不要因为"更简单"、"更熟悉"等理由擅自更换技术方案
+- ❌ 不要在未经许可的情况下修改核心架构设计
+
+## 其他重要原则
+- 使用中文和我交流
+- 注意文档目录的规划/管理
+- 直面问题，解决问题，不要试图绕过去，顺藤摸瓜找到问题
 
 ## 项目概述
 
 这是一个基于 AI 驱动的长篇小说生成系统,支持科幻和玄幻/仙侠两大类型。系统采用"全局导演"(Global Director)架构,通过事件线评分、一致性审计和线索经济管理来生成连贯的长篇小说。
 
-**最新更新(2025-11-02)**: 完成目录结构重组，实现清晰的分层架构
+**最新更新(2025-11-03)**: 完成 Phase 2 游戏工具系统（基于 Claude Agent SDK）
+
+**Phase 2 实施（2025-11-03）**:
+- ✅ 使用 Claude Agent SDK + MCP Server 架构
+- ✅ 11个游戏工具（@tool 装饰器）
+  - 7个核心工具（状态查询、物品、HP、检定、位置、存档）
+  - 5个任务工具（创建、查询、激活、更新进度、完成）
+- ✅ DM Agent 实现（ClaudeAgentOptions + query）
+- ✅ 游戏状态管理器（数据库 + 缓存）
+- ✅ 存档系统（SaveService + 3个表 + 6个API端点）
+- ✅ 任务系统（Quest 数据模型 + 5个MCP工具）
+- ✅ 完整的测试覆盖（单元测试 18/18 通过）
+- 📖 详见: `docs/TECHNICAL_IMPLEMENTATION_PLAN.md`、`docs/implementation/CLAUDE_AGENT_SDK_IMPLEMENTATION.md`、`docs/implementation/PHASE2_SAVE_SYSTEM_IMPLEMENTATION.md`、`docs/implementation/PHASE2_QUEST_SYSTEM_IMPLEMENTATION.md`
+
+**目录重组（2025-11-02）**:
 
 **目录重组（最新）**:
 - ✅ 文档分类管理（features/setup/implementation/operations/troubleshooting/reference）

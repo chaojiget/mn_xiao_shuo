@@ -23,6 +23,8 @@ export interface InventoryItem {
   quantity: number              // 数量
   type: ItemType                // 物品类型
   properties?: Record<string, any>  // 额外属性
+  effects?: Record<string, any>  // 物品效果
+  usable?: boolean              // 是否可使用
 }
 
 export type ItemType = "weapon" | "armor" | "consumable" | "key" | "quest" | "misc"
@@ -31,6 +33,7 @@ export type ItemType = "weapon" | "armor" | "consumable" | "key" | "quest" | "mi
 
 export interface Quest {
   id: string                    // 任务ID
+  quest_id?: string             // Backend compatibility
   title: string                 // 任务标题
   description: string           // 任务描述
   status: QuestStatus           // 任务状态
@@ -70,6 +73,8 @@ export interface WorldState {
   discoveredLocations: string[] // 已发现的地点
   variables: Record<string, any>  // 自定义变量
   currentScene?: string         // 当前场景ID
+  current_location?: string     // 当前位置（兼容后端）
+  theme?: string                // 世界主题（兼容后端）
 }
 
 // ==================== 地图系统 ====================
@@ -111,11 +116,13 @@ export interface GameLogEntry {
 
 export interface GameState {
   version: string               // 版本号（用于存档兼容）
+  turn_number: number           // 当前回合数
   player: PlayerState           // 玩家状态
   world: WorldState             // 世界状态
   quests: Quest[]               // 任务列表
   map: GameMap                  // 地图
   log: GameLogEntry[]           // 游戏日志
+  logs?: any[]                  // 日志（兼容后端）
   metadata?: {
     createdAt: number
     updatedAt: number
@@ -252,14 +259,29 @@ export interface GameRule {
 
 export interface NPC {
   id: string
+  npc_id?: string               // Backend compatibility
   name: string
+  description?: string          // NPC描述
   role: string                  // 角色定位
   personality: string[]         // 性格标签
+  personality_traits?: string[] // Backend compatibility (alias for personality)
   tone: string                  // 口吻/说话风格
+  speech_style?: string         // Backend compatibility (alias for tone)
   knownInfo: string[]           // 已知信息
   forbiddenInfo: string[]       // 禁止透露的信息
   location?: string             // 所在位置
-  relationship?: number         // 与玩家的关系（-100到100）
+  relationship?: NPCRelationship // 与玩家的关系
+  goals?: string[]              // NPC的目标
+  secrets?: string[]            // NPC的秘密
+  background?: string           // NPC背景故事
+  memories?: Array<{turn_number: number, event_type: string, summary: string, details?: string}>  // NPC记忆
+}
+
+export interface NPCRelationship {
+  npcId: string
+  affinity: number              // 好感度 (0-100)
+  trust: number                 // 信任度 (0-100)
+  relationship_type: 'ally' | 'friend' | 'neutral' | 'rival' | 'enemy' | 'stranger'
 }
 
 // ==================== 剧情编辑器 ====================
@@ -307,4 +329,23 @@ export interface InitGameResponse {
   state: GameState
   narration: string             // 开场旁白
   suggestions?: string[]
+}
+
+// ==================== DM 相关类型 ====================
+
+export interface DmMessage {
+  id: string
+  role: 'system' | 'user' | 'assistant'
+  content: string
+  tool_calls?: ToolCall[]
+  timestamp?: number
+}
+
+export interface ToolCall {
+  id: string
+  type: 'function'
+  function: {
+    name: string
+    arguments: string
+  }
 }

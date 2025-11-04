@@ -28,8 +28,8 @@ export function SimpleMap({ nodes, edges, currentNodeId }: SimpleMapProps) {
       <svg width="100%" height="100%" viewBox="0 0 400 300" className="text-amber-400">
         {/* 绘制边 */}
         {edges.map((edge, i) => {
-          const fromNode = nodes.find(n => n.id === edge.fromNode)
-          const toNode = nodes.find(n => n.id === edge.toNode)
+          const fromNode = nodes.find(n => n.id === edge.from)
+          const toNode = nodes.find(n => n.id === edge.to)
 
           if (!fromNode || !toNode) return null
 

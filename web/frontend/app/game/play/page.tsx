@@ -209,7 +209,7 @@ export default function GamePlayPage() {
               // 显示游戏状态弹窗
               toast({
                 title: '游戏状态',
-                description: `HP: ${gameState?.hp}/${gameState?.max_hp} | 位置: ${gameState?.current_location}`,
+                description: `HP: ${gameState?.player?.hp || 100}/${gameState?.player?.maxHp || 100} | 位置: ${gameState?.world?.current_location || '未知'}`,
               });
             }}
           >

@@ -98,9 +98,9 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       case 'narration_end':
         const dmMessage: DmMessage = {
           id: Date.now().toString(),
-          type: 'dm',
+          role: 'assistant',
           content: streamingText,
-          timestamp: new Date(),
+          timestamp: Date.now(),
         };
         setMessages((prev) => [...prev, dmMessage]);
         setStreamingText('');
@@ -110,15 +110,17 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       case 'tool_call':
         const toolMessage: DmMessage = {
           id: Date.now().toString(),
-          type: 'tool',
+          role: 'assistant',
           content: `使用工具: ${data.tool_name}`,
-          timestamp: new Date(),
+          timestamp: Date.now(),
           tool_calls: [
             {
-              tool_name: data.tool_name,
-              arguments: data.arguments,
-              result: data.result,
-              timestamp: new Date(),
+              id: Date.now().toString(),
+              type: 'function',
+              function: {
+                name: data.tool_name,
+                arguments: JSON.stringify(data.arguments || {})
+              }
             },
           ],
         };
@@ -147,9 +149,9 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
 
     const playerMessage: DmMessage = {
       id: Date.now().toString(),
-      type: 'player',
+      role: 'user',
       content: input,
-      timestamp: new Date(),
+      timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, playerMessage]);
@@ -175,10 +177,9 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       // 添加 DM 回复
       const dmMessage: DmMessage = {
         id: Date.now().toString(),
-        type: 'dm',
+        role: 'assistant',
         content: data.narration,
-        timestamp: new Date(),
-        metadata: data.metadata,
+        timestamp: Date.now(),
       };
 
       setMessages((prev) => [...prev, dmMessage]);
@@ -197,8 +198,8 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
 
   // 渲染单条消息
   const renderMessage = (message: DmMessage) => {
-    const isPlayer = message.type === 'player';
-    const isTool = message.type === 'tool';
+    const isPlayer = message.role === 'user';
+    const isTool = message.tool_calls && message.tool_calls.length > 0;
 
     if (isTool) {
       return (
@@ -208,7 +209,7 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
             <p className="text-sm text-amber-500 font-medium">{message.content}</p>
             {message.tool_calls && message.tool_calls.length > 0 && (
               <pre className="text-xs text-muted-foreground mt-2 overflow-x-auto">
-                {JSON.stringify(message.tool_calls[0].arguments, null, 2)}
+                {message.tool_calls[0].function.arguments}
               </pre>
             )}
           </div>
@@ -238,7 +239,7 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
               {isPlayer ? '玩家' : '地下城主'}
             </span>
             <span className="text-xs text-muted-foreground">
-              {message.timestamp.toLocaleTimeString()}
+              {message.timestamp ? new Date(message.timestamp).toLocaleTimeString() : ''}
             </span>
           </div>
           <p className="text-sm whitespace-pre-wrap">{message.content}</p>

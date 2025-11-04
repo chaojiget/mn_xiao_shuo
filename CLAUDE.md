@@ -22,19 +22,19 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 这是一个基于 AI 驱动的长篇小说生成系统,支持科幻和玄幻/仙侠两大类型。系统采用"全局导演"(Global Director)架构,通过事件线评分、一致性审计和线索经济管理来生成连贯的长篇小说。
 
-**最新更新(2025-11-03)**: 完成 Phase 2 游戏工具系统（基于 Claude Agent SDK）
+**最新更新(2025-11-04)**: 完成 LangChain 1.0 迁移 🎉
 
-**Phase 2 实施（2025-11-03）**:
-- ✅ 使用 Claude Agent SDK + MCP Server 架构
-- ✅ 11个游戏工具（@tool 装饰器）
-  - 7个核心工具（状态查询、物品、HP、检定、位置、存档）
-  - 5个任务工具（创建、查询、激活、更新进度、完成）
-- ✅ DM Agent 实现（ClaudeAgentOptions + query）
-- ✅ 游戏状态管理器（数据库 + 缓存）
-- ✅ 存档系统（SaveService + 3个表 + 6个API端点）
-- ✅ 任务系统（Quest 数据模型 + 5个MCP工具）
-- ✅ 完整的测试覆盖（单元测试 18/18 通过）
-- 📖 详见: `docs/TECHNICAL_IMPLEMENTATION_PLAN.md`、`docs/implementation/CLAUDE_AGENT_SDK_IMPLEMENTATION.md`、`docs/implementation/PHASE2_SAVE_SYSTEM_IMPLEMENTATION.md`、`docs/implementation/PHASE2_QUEST_SYSTEM_IMPLEMENTATION.md`
+**LangChain 1.0 架构（2025-11-04）**:
+- ✅ 使用 LangChain 1.0 + OpenRouter 架构（移除 LiteLLM Proxy 和 Claude Agent SDK）
+- ✅ 15个游戏工具（LangChain `@tool` 装饰器）
+  - 核心工具：get_player_state, add_item, update_hp, roll_check, set_location, save_game
+  - 任务系统：create_quest, get_quests, activate_quest, update_quest_objective, complete_quest
+  - NPC系统：create_npc, get_npcs, update_npc_relationship, add_npc_memory
+- ✅ DM Agent 实现（LangChain `create_agent`）
+- ✅ 直连 OpenRouter（无中间层，降低延迟）
+- ✅ 支持多模型：DeepSeek, Claude 3.5, GPT-4, Qwen 2.5
+- ✅ 完整的流式生成支持
+- 📖 详见: `docs/implementation/LANGCHAIN_MIGRATION_PLAN.md`
 
 **目录重组（2025-11-02）**:
 
@@ -178,7 +178,7 @@ npm run lint
 
 ## 核心架构
 
-### 1. 三层架构
+### 1. 三层架构（LangChain 1.0）
 
 ```
 ┌──────────────────────────────────────────┐
@@ -190,14 +190,17 @@ npm run lint
 ┌─────────────▼────────────────────────────┐
 │  业务逻辑层                               │
 │  - FastAPI Backend (web/backend/main.py)│
-│  - Global Director (未完全实现)          │
+│  - DM Agent (LangChain create_agent)    │
+│  - 15个游戏工具 (LangChain @tool)        │
+│  - Global Director                       │
 └─────────────┬────────────────────────────┘
               │
 ┌─────────────▼────────────────────────────┐
 │  数据与 AI 层                             │
 │  - SQLite Database (schema.sql)         │
-│  - LiteLLM Router (OpenRouter)          │
-│  - DeepSeek V3 Model                    │
+│  - LangChain ChatOpenAI                 │
+│  - OpenRouter (直连)                     │
+│  - DeepSeek/Claude/GPT-4/Qwen           │
 └──────────────────────────────────────────┘
 ```
 
@@ -221,29 +224,33 @@ npm run lint
 - `Setup`: 伏笔/铺垫,带 SLA 截止时间
 - `ClueRegistry`: 线索登记册,跟踪发现与验证状态
 
-### 3. LLM 集成架构
+### 3. LLM 集成架构（LangChain 1.0）
 
-**配置路径:** `config/litellm_config.yaml`
+**核心组件:**
+- `web/backend/llm/langchain_backend.py`: LangChain 后端实现
+- `web/backend/agents/dm_agent_langchain.py`: DM Agent
+- `web/backend/agents/game_tools_langchain.py`: 15个游戏工具
 
 **模型选择策略:**
-- **DeepSeek V3** (`deepseek`): 默认模型,高性价比,中文友好,用于所有章节生成
-- Claude Sonnet (`claude-sonnet`): 高质量备用模型
-- Claude Haiku (`claude-haiku`): 快速简单任务
-- GPT-4 (`gpt-4`): 备用模型
-- Qwen 2.5 (`qwen`): 中文优化备用
+- **DeepSeek Chat** (`deepseek/deepseek-chat`): 默认模型,高性价比,中文友好
+- **Claude 3.5 Sonnet** (`anthropic/claude-3.5-sonnet`): 高质量推理
+- **Claude 3 Haiku** (`anthropic/claude-3-haiku`): 快速简单任务
+- **GPT-4 Turbo** (`openai/gpt-4-turbo`): 备用模型
+- **Qwen 2.5** (`qwen/qwen-2.5-72b-instruct`): 中文优化
 
-**LiteLLM 客户端:**
-- 位置: `src/llm/litellm_client.py`
-- 初始化时必须传入 `config_path` 参数(使用绝对路径)
-- 方法:
+**LangChain 后端:**
+- 位置: `web/backend/llm/langchain_backend.py`
+- 功能:
   - `generate()`: 基础文本生成
   - `generate_structured()`: 结构化 JSON 输出
-  - `batch_generate()`: 批量生成
+  - `generate_stream()`: 流式生成
+- 直连 OpenRouter (无需中间代理)
 
 **环境变量:**
 - `OPENROUTER_API_KEY`: 必需,OpenRouter API 密钥
+- `OPENROUTER_BASE_URL`: OpenRouter API 地址 (默认: https://openrouter.ai/api/v1)
+- `DEFAULT_MODEL`: 默认模型 (默认: deepseek/deepseek-chat)
 - `DATABASE_URL`: SQLite 数据库路径
-- `LITELLM_CONFIG_PATH`: 可选,默认 `./config/litellm_config.yaml`
 
 ### 4. 数据库设计 (schema.sql)
 
@@ -266,14 +273,15 @@ npm run lint
 
 **后端 (FastAPI) - 分层架构:**
 - 入口: `web/backend/main.py`
-- 启动事件中初始化 LiteLLM 和 Database (使用绝对路径)
+- 启动事件中初始化 LangChain Backend 和 Database (使用绝对路径)
 - 目录结构:
   - `api/`: API路由层 (chat_api, game_api, world_api, generation_api)
   - `services/`: 业务逻辑层 (world_generator, scene_refinement, agent_generation)
-  - `game/`: 游戏引擎 (game_engine, game_tools, quests)
+  - `agents/`: LangChain Agent层 (dm_agent_langchain, game_tools_langchain)
+  - `game/`: 游戏引擎 (game_engine, quests)
   - `models/`: 数据模型 (world_models)
   - `database/`: 数据库访问 (world_db)
-  - `llm/`: LLM集成层
+  - `llm/`: LLM集成层 (langchain_backend, base)
 - REST API: `/api/novels`, `/api/game`, `/api/world`, `/api/chat`
 - WebSocket: `/ws/generate/{novel_id}` 用于实时章节生成
 - API 文档: http://localhost:8000/docs

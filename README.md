@@ -7,16 +7,17 @@
 - **全局导演系统**: 智能调度事件线，平衡可玩性与叙事完整性
 - **一致性审计**: 自动检查硬规则、因果链、资源守恒
 - **线索经济**: 管理伏笔、线索与证据的生命周期
-- **多模型支持**: 通过 LiteLLM 统一多个 LLM 提供商
-- **上下文管理**: MCP 协议管理长期记忆与世界状态
-- **Agent 驱动**: Claude Agent SDK 执行复杂多步骤任务
+- **多模型支持**: 通过 OpenRouter 支持 DeepSeek/Claude/GPT-4/Qwen
+- **LangChain Agent**: 15个游戏工具，流式生成，工具调用
+- **世界管理**: 世界脚手架系统，场景细化流水线
 
 ## 技术栈
 
-- **Python 3.11+**
-- **Claude Agent SDK**: 任务执行
-- **LiteLLM**: 模型路由与负载均衡
-- **MCP**: 上下文与记忆管理
+- **Python 3.11+** + **uv** (包管理器)
+- **LangChain 1.0**: Agent 框架
+- **OpenRouter**: 多模型 API 网关
+- **FastAPI**: 后端 Web 框架
+- **Next.js 14**: 前端框架 + shadcn/ui
 - **PostgreSQL + ChromaDB**: 状态存储与向量检索
 
 ## 快速开始
@@ -24,21 +25,19 @@
 ### 🚀 一键启动（推荐）
 
 ```bash
-# 启动完整系统（LiteLLM Proxy + Backend + Frontend）
-./start_all_with_agent.sh
+# 启动完整系统（Backend + Frontend）
+./scripts/start/start_all_with_agent.sh
 
 # 访问服务：
 # - 前端界面: http://localhost:3000
 # - API 文档: http://localhost:8000/docs
-# - LiteLLM Proxy: http://localhost:4000
 ```
 
 这会自动启动：
-- **LiteLLM Proxy** (端口 4000) - 使用 DeepSeek 模型，节省 90% 成本
-- **FastAPI Backend** (端口 8000) - 后端 API 服务
+- **FastAPI Backend** (端口 8000) - LangChain Agent + 游戏工具
 - **Next.js Frontend** (端口 3000) - Web 界面
 
-详见 [docs/START_ALL_WITH_AGENT_GUIDE.md](docs/START_ALL_WITH_AGENT_GUIDE.md)
+详见 [docs/implementation/LANGCHAIN_MIGRATION_PLAN.md](docs/implementation/LANGCHAIN_MIGRATION_PLAN.md)
 
 ### 检查服务状态
 
@@ -72,8 +71,8 @@ python interactive_generator.py
 ### 开发环境设置
 
 ```bash
-# 1. 安装依赖
-pip install -r requirements.txt
+# 1. 安装依赖 (使用 uv)
+uv pip install -r requirements.txt
 
 # 2. 配置环境变量
 cp .env.example .env

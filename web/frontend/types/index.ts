@@ -30,10 +30,12 @@ export interface Novel {
   id: string
   title: string
   type: "scifi" | "xianxia"
-  createdAt: string
-  updatedAt: string
+  chapters: number
+  created_at: string
+  updated_at?: string
   protagonist?: string
   background?: string
+  settings?: NovelSettings
 }
 
 export interface GenerateSettingParams {

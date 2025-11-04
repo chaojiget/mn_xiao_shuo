@@ -413,3 +413,398 @@ async def get_latest_auto_save(user_id: str = "default_user"):
         raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取自动保存失败: {str(e)}")
+
+
+# ==================== 任务系统 API (Phase 2) ====================
+
+class QuestObjectiveModel(BaseModel):
+    """任务目标模型"""
+    id: str
+    description: str
+    current: int = 0
+    required: int = 1
+    completed: bool = False
+
+
+class CreateQuestRequest(BaseModel):
+    """创建任务请求"""
+    quest_id: Optional[str] = None
+    quest_type: str = "main"
+    title: str
+    description: str
+    level_requirement: int = 1
+    objectives: List[Dict[str, Any]]
+    rewards: Dict[str, Any]
+
+
+class ActivateQuestRequest(BaseModel):
+    """激活任务请求"""
+    quest_id: str
+
+
+class UpdateQuestProgressRequest(BaseModel):
+    """更新任务进度请求"""
+    quest_id: str
+    objective_id: str
+    amount: int = 1
+
+
+@router.post("/quests")
+async def create_quest(request: CreateQuestRequest):
+    """创建新任务
+
+    Args:
+        request: 包含任务详细信息
+
+    Returns:
+        {
+            "success": true,
+            "quest_id": str,
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        # 调用游戏工具的 create_quest
+        from ..agents.game_tools_mcp import create_quest as mcp_create_quest
+
+        result = await mcp_create_quest({
+            "quest_id": request.quest_id,
+            "quest_type": request.quest_type,
+            "title": request.title,
+            "description": request.description,
+            "level_requirement": request.level_requirement,
+            "objectives": request.objectives,
+            "rewards": request.rewards
+        })
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建任务失败: {str(e)}")
+
+
+@router.get("/quests")
+async def get_quests(status: Optional[str] = None):
+    """获取任务列表
+
+    Args:
+        status: 可选，筛选任务状态 (available/active/completed/failed)
+
+    Returns:
+        {
+            "success": true,
+            "quests": [...],
+            "count": int
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import get_quests as mcp_get_quests
+
+        result = await mcp_get_quests({"status": status} if status else {})
+
+        return {
+            "success": True,
+            **result
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取任务列表失败: {str(e)}")
+
+
+@router.post("/quests/{quest_id}/activate")
+async def activate_quest(quest_id: str):
+    """激活任务
+
+    Args:
+        quest_id: 任务ID
+
+    Returns:
+        {
+            "success": true,
+            "quest_id": str,
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import activate_quest as mcp_activate_quest
+
+        result = await mcp_activate_quest({"quest_id": quest_id})
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"激活任务失败: {str(e)}")
+
+
+@router.put("/quests/{quest_id}/progress")
+async def update_quest_progress(quest_id: str, request: UpdateQuestProgressRequest):
+    """更新任务目标进度
+
+    Args:
+        quest_id: 任务ID
+        request: 包含 objective_id 和 amount
+
+    Returns:
+        {
+            "success": true,
+            "quest_id": str,
+            "objective_id": str,
+            "current": int,
+            "required": int,
+            "completed": bool,
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import update_quest_objective
+
+        result = await update_quest_objective({
+            "quest_id": quest_id,
+            "objective_id": request.objective_id,
+            "amount": request.amount
+        })
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新任务进度失败: {str(e)}")
+
+
+@router.post("/quests/{quest_id}/complete")
+async def complete_quest(quest_id: str):
+    """完成任务并发放奖励
+
+    Args:
+        quest_id: 任务ID
+
+    Returns:
+        {
+            "success": true,
+            "quest_id": str,
+            "quest_title": str,
+            "rewards": {...},
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import complete_quest as mcp_complete_quest
+
+        result = await mcp_complete_quest({"quest_id": quest_id})
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"完成任务失败: {str(e)}")
+
+
+# ==================== NPC 系统 API (Phase 2) ====================
+
+class CreateNPCRequest(BaseModel):
+    """创建NPC请求"""
+    npc_id: str
+    name: str
+    role: str
+    description: str = ""
+    location: str
+    personality_traits: List[str] = []
+    speech_style: str = ""
+    goals: List[str] = []
+
+
+class UpdateNPCRelationshipRequest(BaseModel):
+    """更新NPC关系请求"""
+    npc_id: str
+    affinity_delta: int = 0
+    trust_delta: int = 0
+    reason: str = ""
+
+
+class AddNPCMemoryRequest(BaseModel):
+    """添加NPC记忆请求"""
+    npc_id: str
+    event_type: str  # conversation, quest, combat, observation
+    summary: str
+    emotional_impact: int = 0
+
+
+@router.post("/npcs")
+async def create_npc(request: CreateNPCRequest):
+    """创建新NPC
+
+    Args:
+        request: NPC详细信息
+
+    Returns:
+        {
+            "success": true,
+            "npc_id": str,
+            "name": str,
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import create_npc as mcp_create_npc
+
+        result = await mcp_create_npc(request.model_dump())
+
+        return result
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"创建NPC失败: {str(e)}")
+
+
+@router.get("/npcs")
+async def get_npcs(location: Optional[str] = None, status: Optional[str] = None):
+    """获取NPC列表
+
+    Args:
+        location: 可选，按位置筛选
+        status: 可选，按状态筛选 (active/inactive/retired)
+
+    Returns:
+        {
+            "success": true,
+            "npcs": [...],
+            "count": int,
+            "location": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import get_npcs as mcp_get_npcs
+
+        params = {}
+        if location:
+            params["location"] = location
+        if status:
+            params["status"] = status
+
+        result = await mcp_get_npcs(params)
+
+        return {
+            "success": True,
+            **result
+        }
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"获取NPC列表失败: {str(e)}")
+
+
+@router.put("/npcs/{npc_id}/relationship")
+async def update_npc_relationship(npc_id: str, request: UpdateNPCRelationshipRequest):
+    """更新NPC与玩家的关系
+
+    Args:
+        npc_id: NPC ID
+        request: 关系变化数据
+
+    Returns:
+        {
+            "success": true,
+            "npc_id": str,
+            "npc_name": str,
+            "affinity": int,
+            "trust": int,
+            "relationship_type": str,
+            "changes": {...},
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import update_npc_relationship as mcp_update_relationship
+
+        result = await mcp_update_relationship({
+            "npc_id": npc_id,
+            "affinity_delta": request.affinity_delta,
+            "trust_delta": request.trust_delta,
+            "reason": request.reason
+        })
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"更新NPC关系失败: {str(e)}")
+
+
+@router.post("/npcs/{npc_id}/memories")
+async def add_npc_memory(npc_id: str, request: AddNPCMemoryRequest):
+    """为NPC添加记忆
+
+    Args:
+        npc_id: NPC ID
+        request: 记忆数据
+
+    Returns:
+        {
+            "success": true,
+            "npc_id": str,
+            "npc_name": str,
+            "memory_count": int,
+            "message": str
+        }
+    """
+    if not game_engine:
+        raise HTTPException(status_code=500, detail="游戏引擎未初始化")
+
+    try:
+        from ..agents.game_tools_mcp import add_npc_memory as mcp_add_memory
+
+        result = await mcp_add_memory({
+            "npc_id": npc_id,
+            "event_type": request.event_type,
+            "summary": request.summary,
+            "emotional_impact": request.emotional_impact
+        })
+
+        if not result.get("success"):
+            raise HTTPException(status_code=400, detail=result.get("message"))
+
+        return result
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"添加NPC记忆失败: {str(e)}")

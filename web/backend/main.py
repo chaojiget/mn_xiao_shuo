@@ -16,6 +16,7 @@ from src.models import WorldState, Character
 from api.chat_api import router as chat_router
 from api.generation_api import router as generation_router
 from api.game_api import router as game_router, init_game_engine
+from api.dm_api import router as dm_router, init_dm_agent
 from llm import create_backend, get_available_backends
 from llm.config_loader import LLMConfigLoader
 from api.world_api import router as world_router, init_world_services
@@ -43,6 +44,9 @@ app.include_router(generation_router)
 
 # 注册游戏路由
 app.include_router(game_router)
+
+# 注册 DM Agent 路由
+app.include_router(dm_router)
 
 # 注册世界管理路由
 app.include_router(world_router)
@@ -109,6 +113,10 @@ async def startup():
     # 初始化世界服务
     init_world_services(world_db, llm_backend)
     print(f"✅ 世界管理服务已初始化")
+
+    # 初始化 DM Agent
+    init_dm_agent()
+    print(f"✅ DM Agent 已初始化")
 
 
 @app.on_event("shutdown")

@@ -31,11 +31,12 @@ class LLMConfigLoader:
 
         if not config_file.exists():
             print(f"[WARNING] 配置文件不存在: {self.config_path}")
-            print("[INFO] 使用默认配置: LiteLLM + DeepSeek")
+            print("[INFO] 使用默认配置: LangChain + DeepSeek")
             return {
-                "backend": "litellm",
-                "litellm": {
-                    "model": "deepseek"
+                "backend": "langchain",
+                "langchain": {
+                    "model": "deepseek/deepseek-chat",
+                    "temperature": 0.7
                 }
             }
 
@@ -59,7 +60,7 @@ class LLMConfigLoader:
 
     def get_backend_type(self) -> str:
         """获取后端类型"""
-        return self.config.get("backend", "litellm")
+        return self.config.get("backend", "langchain")
 
     def get_backend_config(self, backend_type: str = None) -> Dict[str, Any]:
         """
@@ -108,9 +109,13 @@ class LLMConfigLoader:
         print(f"{'='*50}")
         print(f"后端类型: {backend_type}")
 
-        if backend_type == "litellm":
-            print(f"默认模型: {backend_config.get('model', 'deepseek')}")
+        if backend_type == "langchain":
+            print(f"默认模型: {backend_config.get('model', 'deepseek/deepseek-chat')}")
+            print(f"温度: {backend_config.get('temperature', 0.7)}")
             print(f"成本: 低 (~$0.001/回合)")
+        elif backend_type == "litellm":
+            print(f"⚠️  LiteLLM 已被移除，请使用 LangChain")
+            print(f"默认模型: {backend_config.get('model', 'deepseek')}")
         elif backend_type == "claude":
             print(f"模型: {backend_config.get('model', 'claude-sonnet-4')}")
             print(f"成本: 高 (~$0.015/回合)")

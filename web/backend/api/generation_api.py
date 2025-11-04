@@ -10,7 +10,7 @@ from pathlib import Path
 # 添加项目根目录到路径
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
-from src.llm import LiteLLMClient
+from web.backend.llm import LangChainBackend
 
 router = APIRouter()
 
@@ -149,9 +149,10 @@ async def generate_novel_setting(
 
     # 初始化 LLM 客户端
     if llm_client is None:
-        project_root = Path(__file__).parent.parent.parent
-        config_path = project_root / "config" / "litellm_config.yaml"
-        llm_client = LiteLLMClient(config_path=str(config_path))
+        llm_client = LangChainBackend(config={
+            "model": "deepseek/deepseek-chat",
+            "temperature": 0.7
+        })
 
     # 构建提示词
     prompt = build_generation_prompt(title, novel_type, user_prompt)
@@ -280,9 +281,10 @@ async def optimize_setting_endpoint(request: Dict[str, Any]):
     global llm_client
 
     if llm_client is None:
-        project_root = Path(__file__).parent.parent.parent
-        config_path = project_root / "config" / "litellm_config.yaml"
-        llm_client = LiteLLMClient(config_path=str(config_path))
+        llm_client = LangChainBackend(config={
+            "model": "deepseek/deepseek-chat",
+            "temperature": 0.7
+        })
 
     try:
         current_setting = request.get("current_setting")

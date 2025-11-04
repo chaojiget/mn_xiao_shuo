@@ -7,9 +7,14 @@ from typing import Optional, List
 import asyncio
 import sys
 from pathlib import Path
+from dotenv import load_dotenv
+
+# 加载 .env 文件
+project_root = Path(__file__).parent.parent.parent
+load_dotenv(project_root / ".env")
 
 # 添加项目根目录到路径
-sys.path.insert(0, str(Path(__file__).parent.parent.parent))
+sys.path.insert(0, str(project_root))
 
 from src.utils.database import Database
 from src.models import WorldState, Character

@@ -8,7 +8,7 @@ from typing import Optional, List, Dict, Any
 from pathlib import Path
 from datetime import datetime
 
-from ..models.world_models import (
+from models.world_models import (
     WorldScaffold, Region, Location, POI, Faction,
     WorldItem, Creature, QuestHook, DetailLayer,
     WorldEvent, StyleVocabulary, CanonConflict

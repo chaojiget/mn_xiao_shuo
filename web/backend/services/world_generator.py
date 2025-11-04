@@ -7,7 +7,7 @@ import json
 from typing import List, Dict, Any, Optional
 from pathlib import Path
 
-from ..models.world_models import (
+from models.world_models import (
     WorldScaffold, Region, Location, POI, Faction,
     WorldGenerationRequest, RegionGenerationRequest,
     LocationGenerationRequest, POIGenerationRequest,

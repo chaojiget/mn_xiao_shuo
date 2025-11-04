@@ -18,7 +18,7 @@ dm_agent = None
 def init_dm_agent():
     """初始化 DM Agent"""
     global dm_agent
-    from ..agents.dm_agent import DMAgent
+    from agents.dm_agent import DMAgent
     dm_agent = DMAgent()
     print("✅ DM Agent 已初始化")
 

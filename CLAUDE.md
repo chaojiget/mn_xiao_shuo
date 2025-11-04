@@ -65,20 +65,49 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## 关键命令
 
+### Python 环境管理
+
+**本项目使用 `uv` 作为 Python 包管理器**
+
+`uv` 是一个超快的 Python 包管理器，比 pip 快 10-100 倍。
+
+```bash
+# 安装 uv (如果未安装)
+curl -LsSf https://astral.sh/uv/install.sh | sh
+
+# 使用 uv 安装依赖
+uv pip install -r requirements.txt
+
+# 使用 uv 运行 Python 命令
+uv run python script.py
+
+# 使用 uv 运行后端服务
+cd web/backend
+uv run uvicorn main:app --reload --port 8000
+
+# 查看已安装的包
+uv pip list
+
+# 安装单个包
+uv pip install package-name
+```
+
+**注意：**
+- 不要使用 `pip` 或 `python` 命令，统一使用 `uv pip` 和 `uv run python`
+- `uv` 会自动管理虚拟环境，无需手动激活 `.venv`
+- 如果遇到包未找到的错误，使用 `uv pip install` 安装
+
 ### 开发环境设置
 
 ```bash
-# 激活虚拟环境
-source .venv/bin/activate
-
-# 安装后端依赖
-pip install -r requirements.txt
+# 安装后端依赖 (使用 uv)
+uv pip install -r requirements.txt
 
 # 安装前端依赖 (首次运行)
 cd web/frontend && npm install && cd ../..
 
 # 初始化数据库
-python scripts/init_db.py
+uv run python scripts/init_db.py
 ```
 
 ### 运行服务
@@ -90,34 +119,33 @@ python scripts/init_db.py
 # 停止所有服务
 ./scripts/start/stop_all.sh
 
-# 或手动启动后端 (端口 8000)
-source .venv/bin/activate
+# 或手动启动后端 (端口 8000) - 使用 uv
 cd web/backend
-uvicorn main:app --reload --port 8000
+uv run uvicorn main:app --reload --port 8000
 
 # 或手动启动前端 (端口 3000)
 cd web/frontend
 npm run dev
 
-# CLI 交互式生成
-python interactive_generator.py
+# CLI 交互式生成 - 使用 uv
+uv run python interactive_generator.py
 ```
 
 ### 测试
 
 ```bash
-# 测试数据库连接
-python tests/integration/test_database.py
+# 测试数据库连接 - 使用 uv
+uv run python tests/integration/test_database.py
 
-# 测试 OpenRouter API
-python tests/integration/test_openrouter.py
+# 测试 OpenRouter API - 使用 uv
+uv run python tests/integration/test_openrouter.py
 
-# 测试完整设置
-python tests/integration/test_setup.py
+# 测试完整设置 - 使用 uv
+uv run python tests/integration/test_setup.py
 
-# 端到端测试
-python tests/e2e/test_litellm_api.py
-python tests/e2e/test_world_scaffold.py
+# 端到端测试 - 使用 uv
+uv run python tests/e2e/test_litellm_api.py
+uv run python tests/e2e/test_world_scaffold.py
 ```
 
 ### 开发工具

@@ -9,9 +9,9 @@ from typing import Optional, Dict, Any, List
 import json
 import asyncio
 
-from ..game.game_engine import GameEngine, GameTurnRequest, GameTurnResponse
-from ..game.game_tools import GameState
-from ..services.save_service import SaveService
+from game.game_engine import GameEngine, GameTurnRequest, GameTurnResponse
+from game.game_tools import GameState
+from services.save_service import SaveService
 
 router = APIRouter(prefix="/api/game", tags=["game"])
 
@@ -468,7 +468,7 @@ async def create_quest(request: CreateQuestRequest):
 
     try:
         # 调用游戏工具的 create_quest
-        from ..agents.game_tools_mcp import create_quest as mcp_create_quest
+        from agents.game_tools_mcp import create_quest as mcp_create_quest
 
         result = await mcp_create_quest({
             "quest_id": request.quest_id,
@@ -504,7 +504,7 @@ async def get_quests(status: Optional[str] = None):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import get_quests as mcp_get_quests
+        from agents.game_tools_mcp import get_quests as mcp_get_quests
 
         result = await mcp_get_quests({"status": status} if status else {})
 
@@ -535,7 +535,7 @@ async def activate_quest(quest_id: str):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import activate_quest as mcp_activate_quest
+        from agents.game_tools_mcp import activate_quest as mcp_activate_quest
 
         result = await mcp_activate_quest({"quest_id": quest_id})
 
@@ -573,7 +573,7 @@ async def update_quest_progress(quest_id: str, request: UpdateQuestProgressReque
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import update_quest_objective
+        from agents.game_tools_mcp import update_quest_objective
 
         result = await update_quest_objective({
             "quest_id": quest_id,
@@ -612,7 +612,7 @@ async def complete_quest(quest_id: str):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import complete_quest as mcp_complete_quest
+        from agents.game_tools_mcp import complete_quest as mcp_complete_quest
 
         result = await mcp_complete_quest({"quest_id": quest_id})
 
@@ -676,7 +676,7 @@ async def create_npc(request: CreateNPCRequest):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import create_npc as mcp_create_npc
+        from agents.game_tools_mcp import create_npc as mcp_create_npc
 
         result = await mcp_create_npc(request.model_dump())
 
@@ -706,7 +706,7 @@ async def get_npcs(location: Optional[str] = None, status: Optional[str] = None)
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import get_npcs as mcp_get_npcs
+        from agents.game_tools_mcp import get_npcs as mcp_get_npcs
 
         params = {}
         if location:
@@ -749,7 +749,7 @@ async def update_npc_relationship(npc_id: str, request: UpdateNPCRelationshipReq
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import update_npc_relationship as mcp_update_relationship
+        from agents.game_tools_mcp import update_npc_relationship as mcp_update_relationship
 
         result = await mcp_update_relationship({
             "npc_id": npc_id,
@@ -790,7 +790,7 @@ async def add_npc_memory(npc_id: str, request: AddNPCMemoryRequest):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from ..agents.game_tools_mcp import add_npc_memory as mcp_add_memory
+        from agents.game_tools_mcp import add_npc_memory as mcp_add_memory
 
         result = await mcp_add_memory({
             "npc_id": npc_id,

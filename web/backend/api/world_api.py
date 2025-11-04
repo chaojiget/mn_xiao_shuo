@@ -6,7 +6,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Optional
 import asyncio
 
-from ..models.world_models import (
+from models.world_models import (
     WorldScaffold, Region, Location, POI, Faction,
     WorldGenerationRequest, RegionGenerationRequest,
     LocationGenerationRequest, POIGenerationRequest,
@@ -14,9 +14,9 @@ from ..models.world_models import (
     WorldGenerationResponse, RefinementResult, AffordanceResult,
     GenerationProgress
 )
-from ..database.world_db import WorldDatabase
-from ..services.world_generator import WorldGenerator
-from ..services.scene_refinement import SceneRefinement
+from database.world_db import WorldDatabase
+from services.world_generator import WorldGenerator
+from services.scene_refinement import SceneRefinement
 
 
 router = APIRouter(prefix="/api/world", tags=["world"])

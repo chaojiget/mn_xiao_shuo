@@ -31,7 +31,7 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
     );
   }
 
-  const hpPercent = (gameState.hp / gameState.max_hp) * 100;
+  const hpPercent = (gameState.player.hp / gameState.player.maxHp) * 100;
 
   // 渲染物品卡片
   const renderItem = (item: InventoryItem) => {
@@ -93,7 +93,7 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
               <span>生命值</span>
             </div>
             <span className="font-semibold">
-              {gameState.hp} / {gameState.max_hp}
+              {gameState.player.hp} / {gameState.player.maxHp}
             </span>
           </div>
           <Progress value={hpPercent} className="h-2" />
@@ -101,16 +101,10 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
 
         {/* 资源 */}
         <div className="grid grid-cols-2 gap-2">
-          {gameState.resources.gold !== undefined && (
+          {gameState.player.money !== undefined && (
             <div className="flex items-center gap-2 text-sm">
               <Coins className="w-4 h-4 text-yellow-500" />
-              <span>{gameState.resources.gold}</span>
-            </div>
-          )}
-          {gameState.resources.exp !== undefined && (
-            <div className="flex items-center gap-2 text-sm">
-              <Zap className="w-4 h-4 text-blue-500" />
-              <span>{gameState.resources.exp}</span>
+              <span>{gameState.player.money}</span>
             </div>
           )}
         </div>
@@ -118,12 +112,12 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
         {/* 位置 */}
         <div className="flex items-center gap-2 text-sm text-muted-foreground">
           <MapPin className="w-4 h-4" />
-          <span>{gameState.current_location}</span>
+          <span>{gameState.map.currentNodeId}</span>
         </div>
 
         {/* 回合数 */}
         <div className="text-xs text-muted-foreground text-center pt-2 border-t">
-          回合 {gameState.turn_number}
+          回合 {gameState.world.time}
         </div>
       </div>
     );
@@ -139,7 +133,7 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
             状态
           </TabsTrigger>
           <TabsTrigger value="inventory" className="flex-1">
-            背包 ({gameState.inventory.length})
+            背包 ({gameState.player.inventory.length})
           </TabsTrigger>
         </TabsList>
 
@@ -153,7 +147,7 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
                 <span className="font-semibold">生命值</span>
               </div>
               <span className="font-bold text-lg">
-                {gameState.hp} / {gameState.max_hp}
+                {gameState.player.hp} / {gameState.player.maxHp}
               </span>
             </div>
             <Progress value={hpPercent} className="h-3" />
@@ -161,44 +155,16 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
 
           {/* 资源 */}
           <div className="grid grid-cols-2 gap-4">
-            {gameState.resources.gold !== undefined && (
+            {gameState.player.money !== undefined && (
               <div className="border rounded-lg p-3">
                 <div className="flex items-center gap-2 text-yellow-500 mb-2">
                   <Coins className="w-5 h-5" />
                   <span className="text-sm font-semibold">金币</span>
                 </div>
-                <p className="text-2xl font-bold">{gameState.resources.gold}</p>
-              </div>
-            )}
-            {gameState.resources.exp !== undefined && (
-              <div className="border rounded-lg p-3">
-                <div className="flex items-center gap-2 text-blue-500 mb-2">
-                  <Zap className="w-5 h-5" />
-                  <span className="text-sm font-semibold">经验</span>
-                </div>
-                <p className="text-2xl font-bold">{gameState.resources.exp}</p>
+                <p className="text-2xl font-bold">{gameState.player.money}</p>
               </div>
             )}
           </div>
-
-          {/* 其他资源 */}
-          {Object.entries(gameState.resources).filter(
-            ([key]) => key !== 'gold' && key !== 'exp'
-          ).length > 0 && (
-            <div className="border rounded-lg p-3">
-              <h3 className="text-sm font-semibold mb-2">其他资源</h3>
-              <div className="grid grid-cols-2 gap-2">
-                {Object.entries(gameState.resources)
-                  .filter(([key]) => key !== 'gold' && key !== 'exp')
-                  .map(([key, value]) => (
-                    <div key={key} className="flex justify-between text-sm">
-                      <span className="text-muted-foreground capitalize">{key}</span>
-                      <span className="font-semibold">{value}</span>
-                    </div>
-                  ))}
-              </div>
-            </div>
-          )}
 
           {/* 位置信息 */}
           <div className="border rounded-lg p-3">
@@ -206,26 +172,18 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
               <MapPin className="w-5 h-5" />
               <span className="text-sm font-semibold">当前位置</span>
             </div>
-            <p className="text-lg font-medium">{gameState.current_location}</p>
+            <p className="text-lg font-medium">{gameState.player.location}</p>
           </div>
 
           {/* 游戏信息 */}
           <div className="border rounded-lg p-3 text-sm space-y-1">
             <div className="flex justify-between">
-              <span className="text-muted-foreground">会话ID</span>
-              <span className="font-mono text-xs">{gameState.session_id.slice(0, 8)}...</span>
-            </div>
-            <div className="flex justify-between">
               <span className="text-muted-foreground">回合数</span>
-              <span className="font-semibold">{gameState.turn_number}</span>
+              <span className="font-semibold">{gameState.world.time}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-muted-foreground">激活任务</span>
-              <span className="font-semibold">{gameState.active_quests.length}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-muted-foreground">完成任务</span>
-              <span className="font-semibold">{gameState.completed_quests.length}</span>
+              <span className="text-muted-foreground">任务数</span>
+              <span className="font-semibold">{gameState.quests.length}</span>
             </div>
           </div>
         </TabsContent>
@@ -233,14 +191,14 @@ export function GameStatePanel({ className, compact = false }: GameStatePanelPro
         {/* 背包页 */}
         <TabsContent value="inventory" className="flex-1 mt-0">
           <ScrollArea className="h-full p-4">
-            {gameState.inventory.length === 0 ? (
+            {gameState.player.inventory.length === 0 ? (
               <div className="flex flex-col items-center justify-center h-full text-muted-foreground">
                 <Package className="w-12 h-12 mb-2" />
                 <p className="text-sm">背包是空的</p>
               </div>
             ) : (
               <div className="space-y-3">
-                {gameState.inventory.map(renderItem)}
+                {gameState.player.inventory.map(renderItem)}
               </div>
             )}
           </ScrollArea>

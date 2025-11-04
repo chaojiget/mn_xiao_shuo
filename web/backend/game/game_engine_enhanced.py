@@ -9,8 +9,12 @@ from typing import Dict, List, Any, Optional, AsyncIterator
 from pydantic import BaseModel
 from pathlib import Path
 
-from .game_tools import GameTools, GameState
-from ..database.game_state_db import GameStateManager, GameStateCache
+from game.game_tools import GameTools, GameState
+try:
+    from database.game_state_db import GameStateManager, GameStateCache
+except ImportError:
+    GameStateManager = None
+    GameStateCache = None
 
 # 尝试导入 Anthropic SDK
 try:

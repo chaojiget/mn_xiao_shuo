@@ -6,11 +6,11 @@
 import json
 from typing import List, Dict, Any, Optional
 
-from ..models.world_models import (
+from models.world_models import (
     Location, DetailLayer, LocationRefinementRequest,
     AffordanceExtractionRequest, RefinementResult, AffordanceResult
 )
-from ..database.world_db import WorldDatabase
+from database.world_db import WorldDatabase
 
 
 class SceneRefinement:

@@ -39,11 +39,13 @@ class QuestObjective(BaseModel):
 
 class Quest(BaseModel):
     id: str
+    quest_id: Optional[str] = None  # 可选的任务ID（用于兼容）
     title: str
     description: str
     status: Literal["inactive", "active", "completed", "failed"] = "inactive"
     hints: List[str] = []
     objectives: List[QuestObjective] = []
+    rewards: Dict[str, Any] = {}  # 任务奖励（exp, money, items等）
 
 
 class WorldState(BaseModel):
@@ -52,6 +54,7 @@ class WorldState(BaseModel):
     discoveredLocations: List[str] = []
     variables: Dict[str, Any] = {}
     currentScene: Optional[str] = None
+    theme: Optional[str] = None  # 世界主题/基调
 
 
 class MapNode(BaseModel):
@@ -61,6 +64,7 @@ class MapNode(BaseModel):
     discovered: bool = False
     locked: bool = False
     keyRequired: Optional[str] = None
+    metadata: Dict[str, Any] = {}  # 节点元数据（生态、坐标、POI等）
 
 
 class MapEdge(BaseModel):
@@ -87,11 +91,13 @@ class GameLogEntry(BaseModel):
 
 class GameState(BaseModel):
     version: str = "1.0.0"
+    turn_number: int = 0  # 当前回合数
     player: PlayerState
     world: WorldState
     quests: List[Quest] = []
     map: GameMap
     log: List[GameLogEntry] = []
+    metadata: Dict[str, Any] = {}  # 元数据（创建时间、世界包ID等）
 
 
 # ==================== 检定系统 ====================

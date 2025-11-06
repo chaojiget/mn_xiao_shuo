@@ -6,7 +6,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { CheckCircle2, Circle, Trophy, Star, Clock } from 'lucide-react';
+import { CheckCircle2, Circle, Trophy, Star, Clock, Scroll } from 'lucide-react';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { Progress } from '@/components/ui/progress';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
@@ -44,8 +44,8 @@ export function QuestTracker({ className }: QuestTrackerProps) {
   useEffect(() => {
     const newCompleted = quests
       .filter((q) => q.status === 'completed')
-      .map((q) => q.quest_id)
-      .filter((id) => !completedQuests.includes(id));
+      .map((q) => q.quest_id || q.id)
+      .filter((id): id is string => id !== undefined && !completedQuests.includes(id));
 
     if (newCompleted.length > 0) {
       setCompletedQuests((prev) => [...prev, ...newCompleted]);
@@ -59,7 +59,7 @@ export function QuestTracker({ className }: QuestTrackerProps) {
 
   // 按状态分类任务
   const activeQuests = quests.filter((q) => q.status === 'active');
-  const availableQuests = quests.filter((q) => q.status === 'available');
+  const availableQuests = quests.filter((q) => q.status === 'inactive');
   const completedQuestsData = quests.filter((q) => q.status === 'completed');
 
   // 计算任务进度
@@ -88,11 +88,6 @@ export function QuestTracker({ className }: QuestTrackerProps) {
         <p className={cn(objective.completed && 'line-through text-muted-foreground')}>
           {objective.description}
         </p>
-        {objective.current !== undefined && objective.required !== undefined && (
-          <p className="text-xs text-muted-foreground mt-1">
-            进度: {objective.current} / {objective.required}
-          </p>
-        )}
       </div>
     </div>
   );
@@ -100,17 +95,14 @@ export function QuestTracker({ className }: QuestTrackerProps) {
   // 渲染单个任务
   const renderQuest = (quest: Quest, showProgress: boolean = true) => {
     const progress = calculateProgress(quest);
-    const isCompleting = completedQuests.includes(quest.quest_id);
+    const questId = quest.quest_id || quest.id;
+    const isCompleting = completedQuests.includes(questId);
 
-    const questTypeIcon = {
-      main: <Star className="w-4 h-4 text-yellow-500" />,
-      side: <Circle className="w-4 h-4 text-blue-500" />,
-      daily: <Clock className="w-4 h-4 text-purple-500" />,
-    };
+    const questTypeIcon = <Scroll className="w-4 h-4 text-blue-500" />;
 
     return (
       <motion.div
-        key={quest.quest_id}
+        key={questId}
         layout
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
@@ -122,7 +114,7 @@ export function QuestTracker({ className }: QuestTrackerProps) {
       >
         {/* 任务头部 */}
         <div className="flex items-start gap-2">
-          {questTypeIcon[quest.quest_type]}
+          {questTypeIcon}
           <div className="flex-1">
             <h3 className="font-semibold text-sm flex items-center gap-2">
               {quest.title}
@@ -167,10 +159,10 @@ export function QuestTracker({ className }: QuestTrackerProps) {
                 <span>{quest.rewards.exp} 经验</span>
               </div>
             )}
-            {quest.rewards.gold && (
+            {quest.rewards.money && (
               <div className="flex items-center gap-1">
                 <Trophy className="w-3 h-3 text-yellow-500" />
-                <span>{quest.rewards.gold} 金币</span>
+                <span>{quest.rewards.money} 金币</span>
               </div>
             )}
           </div>

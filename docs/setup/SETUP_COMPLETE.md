@@ -94,7 +94,7 @@ OPENROUTER_API_KEY=sk-or-v1-xxxxx
 4️⃣  环境变量:
    ✅ LITELLM_MASTER_KEY: sk-litellm-xxx...
    ✅ ANTHROPIC_BASE_URL: http://0.0.0.0:4000
-   ✅ ANTHROPIC_MODEL: openrouter/deepseek/deepseek-chat-v3-0324
+   ✅ ANTHROPIC_MODEL: openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ### 4. 访问服务
@@ -196,7 +196,7 @@ LITELLM_MASTER_KEY=sk-litellm-xxxxxxxxxxxxxxxx
 # Claude Agent SDK 配置（自动设置）
 ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ## 🔧 已修复的问题

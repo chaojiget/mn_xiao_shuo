@@ -1,135 +1,166 @@
 "use client"
 
-import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { BookOpen, Sparkles, MessageSquare, Gamepad2, Map, ArrowRight } from "lucide-react"
+import { Sparkles, Play, Map, ArrowRight, Globe, Save } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
 
 export default function Home() {
   const router = useRouter()
 
-  // 3秒后自动跳转到工作台
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      router.push("/workspace")
-    }, 3000)
-
-    return () => clearTimeout(timer)
-  }, [router])
-
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-purple-50 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 flex items-center justify-center p-4">
-      <div className="max-w-4xl w-full space-y-8">
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+      <div className="max-w-4xl w-full space-y-12">
         {/* Logo与标题 */}
-        <div className="text-center space-y-4">
-          <div className="w-20 h-20 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl flex items-center justify-center mx-auto shadow-lg">
-            <BookOpen className="w-10 h-10 text-white" />
+        <div className="text-center space-y-6">
+          <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
+            <Globe className="w-12 h-12 text-white" />
           </div>
           <div>
-            <h1 className="text-5xl font-bold tracking-tight mb-2 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              AI 小说生成器
+            <h1 className="text-6xl font-bold tracking-tight mb-4 bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+              AI 世界生成器
             </h1>
-            <p className="text-xl text-muted-foreground">
-              全局导演架构 · 智能叙事引擎 · 探索式世界观
+            <p className="text-xl text-gray-300">
+              预生成完整世界 · AI地下城主 · 沉浸式冒险体验
             </p>
           </div>
         </div>
 
-        {/* 功能特性网格 */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <Card className="hover:shadow-lg transition-all cursor-pointer group">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 bg-blue-500/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-blue-500/20 transition-colors">
-                <Sparkles className="w-6 h-6 text-blue-500" />
+        {/* 主要功能卡片 */}
+        <div className="grid md:grid-cols-3 gap-6">
+          <Card
+            className="bg-slate-800/50 border-purple-500/30 hover:border-purple-500/60 transition-all cursor-pointer group backdrop-blur"
+            onClick={() => router.push("/worlds")}
+          >
+            <CardContent className="pt-8 pb-8">
+              <div className="space-y-4">
+                <div className="w-16 h-16 bg-purple-500/20 rounded-2xl flex items-center justify-center group-hover:bg-purple-500/30 transition-colors">
+                  <Map className="w-8 h-8 text-purple-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">世界管理</h3>
+                  <p className="text-gray-400">
+                    生成和管理预构建的游戏世界，包含地点、NPC、任务等
+                  </p>
+                </div>
+                <div className="flex items-center text-purple-400 group-hover:text-purple-300">
+                  <span className="font-medium">浏览世界</span>
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-              <div className="font-medium">小说创作</div>
-              <div className="text-xs text-muted-foreground mt-1">AI辅助生成</div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all cursor-pointer group">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 bg-green-500/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-green-500/20 transition-colors">
-                <MessageSquare className="w-6 h-6 text-green-500" />
+          <Card
+            className="bg-slate-800/50 border-pink-500/30 hover:border-pink-500/60 transition-all cursor-pointer group backdrop-blur"
+            onClick={() => router.push("/game/play")}
+          >
+            <CardContent className="pt-8 pb-8">
+              <div className="space-y-4">
+                <div className="w-16 h-16 bg-pink-500/20 rounded-2xl flex items-center justify-center group-hover:bg-pink-500/30 transition-colors">
+                  <Play className="w-8 h-8 text-pink-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">开始游戏</h3>
+                  <p className="text-gray-400">
+                    在AI地下城主的引导下，探索动态世界，体验冒险故事
+                  </p>
+                </div>
+                <div className="flex items-center text-pink-400 group-hover:text-pink-300">
+                  <span className="font-medium">进入游戏</span>
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-              <div className="font-medium">对话模式</div>
-              <div className="text-xs text-muted-foreground mt-1">AI聊天创作</div>
             </CardContent>
           </Card>
 
-          <Card className="hover:shadow-lg transition-all cursor-pointer group">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 bg-purple-500/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-purple-500/20 transition-colors">
-                <Gamepad2 className="w-6 h-6 text-purple-500" />
+          <Card
+            className="bg-slate-800/50 border-blue-500/30 hover:border-blue-500/60 transition-all cursor-pointer group backdrop-blur"
+            onClick={() => router.push("/saves")}
+          >
+            <CardContent className="pt-8 pb-8">
+              <div className="space-y-4">
+                <div className="w-16 h-16 bg-blue-500/20 rounded-2xl flex items-center justify-center group-hover:bg-blue-500/30 transition-colors">
+                  <Save className="w-8 h-8 text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-2xl font-bold text-white mb-2">存档管理</h3>
+                  <p className="text-gray-400">
+                    查看和管理游戏存档，加载之前的冒险进度
+                  </p>
+                </div>
+                <div className="flex items-center text-blue-400 group-hover:text-blue-300">
+                  <span className="font-medium">查看存档</span>
+                  <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
+                </div>
               </div>
-              <div className="font-medium">游戏模式</div>
-              <div className="text-xs text-muted-foreground mt-1">单人跑团</div>
-            </CardContent>
-          </Card>
-
-          <Card className="hover:shadow-lg transition-all cursor-pointer group">
-            <CardContent className="pt-6 text-center">
-              <div className="w-12 h-12 bg-orange-500/10 rounded-xl flex items-center justify-center mx-auto mb-3 group-hover:bg-orange-500/20 transition-colors">
-                <Map className="w-6 h-6 text-orange-500" />
-              </div>
-              <div className="font-medium">世界管理</div>
-              <div className="text-xs text-muted-foreground mt-1">脚手架系统</div>
             </CardContent>
           </Card>
         </div>
 
-        {/* 核心特性列表 */}
-        <Card className="bg-card/50 backdrop-blur">
-          <CardContent className="pt-6">
-            <div className="grid md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <div className="font-medium mb-1">✨ 可编辑设定</div>
-                <div className="text-xs text-muted-foreground">动态管理世界观、主角、剧情路线</div>
+        {/* 核心特性 */}
+        <Card className="bg-slate-800/30 border-slate-700/50 backdrop-blur">
+          <CardContent className="pt-6 pb-6">
+            <div className="grid md:grid-cols-3 gap-6 text-sm">
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-purple-400" />
+                  <span className="font-medium text-white">AI世界生成</span>
+                </div>
+                <p className="text-gray-400 text-xs">
+                  自动生成地点、NPC、任务、战利品、遭遇表等完整世界内容
+                </p>
               </div>
-              <div>
-                <div className="font-medium mb-1">🎭 NPC按需生成</div>
-                <div className="text-xs text-muted-foreground">seed→instantiate→engage→adapt</div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-pink-400" />
+                  <span className="font-medium text-white">智能DM系统</span>
+                </div>
+                <p className="text-gray-400 text-xs">
+                  AI地下城主动态响应玩家行动，创造独特的故事体验
+                </p>
               </div>
-              <div>
-                <div className="font-medium mb-1">🔍 一致性审计</div>
-                <div className="text-xs text-muted-foreground">硬规则、因果、资源守恒检查</div>
-              </div>
-              <div>
-                <div className="font-medium mb-1">📊 事件线评分</div>
-                <div className="text-xs text-muted-foreground">可玩性/叙事/混合三种模式</div>
-              </div>
-              <div>
-                <div className="font-medium mb-1">🔗 线索经济管理</div>
-                <div className="text-xs text-muted-foreground">伏笔SLA、证据链验证</div>
-              </div>
-              <div>
-                <div className="font-medium mb-1">🗺️ 世界脚手架</div>
-                <div className="text-xs text-muted-foreground">4-Pass细化、可供性chips</div>
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <Sparkles className="w-4 h-4 text-blue-400" />
+                  <span className="font-medium text-white">进度管理</span>
+                </div>
+                <p className="text-gray-400 text-xs">
+                  自动保存系统，支持多槽位存档，随时继续冒险
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
 
-        {/* 进入按钮 */}
-        <div className="text-center space-y-3">
+        {/* 快速开始指南 */}
+        <div className="text-center space-y-4">
+          <h3 className="text-lg font-medium text-gray-300">快速开始</h3>
+          <div className="flex flex-wrap justify-center gap-3 text-sm">
+            <div className="px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-gray-300">
+              1️⃣ 生成或选择世界
+            </div>
+            <div className="px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-gray-300">
+              2️⃣ 点击"开始冒险"
+            </div>
+            <div className="px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-gray-300">
+              3️⃣ 与AI DM互动游玩
+            </div>
+          </div>
           <Button
             size="lg"
-            className="text-lg px-8 shadow-lg hover:shadow-xl transition-all"
-            onClick={() => router.push("/workspace")}
+            className="mt-6 text-lg px-8 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-xl"
+            onClick={() => router.push("/worlds")}
           >
-            进入工作台
+            开始探索
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
-          <p className="text-sm text-muted-foreground">
-            3秒后自动跳转...
-          </p>
         </div>
 
         {/* 版本信息 */}
-        <div className="text-center text-xs text-muted-foreground space-y-1">
-          <div>v0.6.0 · 世界系统集成完成 · 2025-11-02</div>
-          <div>后端: DeepSeek V3 · 前端: Next.js 14 + shadcn/ui</div>
+        <div className="text-center text-xs text-gray-500 space-y-1">
+          <div>WorldPack v1.2 · 完整世界生成系统 · 2025-11-06</div>
+          <div>后端: LangChain + OpenRouter · 前端: Next.js 14 + shadcn/ui</div>
         </div>
       </div>
     </main>

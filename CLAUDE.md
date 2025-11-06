@@ -232,7 +232,7 @@ npm run lint
 - `web/backend/agents/game_tools_langchain.py`: 15个游戏工具
 
 **模型选择策略:**
-- **DeepSeek Chat** (`deepseek/deepseek-chat`): 默认模型,高性价比,中文友好
+- **DeepSeek Chat** (`deepseek/deepseek-v3.1-terminus`): 默认模型,高性价比,中文友好
 - **Claude 3.5 Sonnet** (`anthropic/claude-3.5-sonnet`): 高质量推理
 - **Claude 3 Haiku** (`anthropic/claude-3-haiku`): 快速简单任务
 - **GPT-4 Turbo** (`openai/gpt-4-turbo`): 备用模型
@@ -249,7 +249,7 @@ npm run lint
 **环境变量:**
 - `OPENROUTER_API_KEY`: 必需,OpenRouter API 密钥
 - `OPENROUTER_BASE_URL`: OpenRouter API 地址 (默认: https://openrouter.ai/api/v1)
-- `DEFAULT_MODEL`: 默认模型 (默认: deepseek/deepseek-chat)
+- `DEFAULT_MODEL`: 默认模型 (默认: deepseek/deepseek-v3.1-terminus)
 - `DATABASE_URL`: SQLite 数据库路径
 
 ### 4. 数据库设计 (schema.sql)

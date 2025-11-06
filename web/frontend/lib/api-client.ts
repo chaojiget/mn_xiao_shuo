@@ -4,7 +4,9 @@
 
 import type { NovelSettings, Novel, Message } from './types'
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+// 🔥 修复：使用空字符串作为 baseUrl，让请求走 Next.js 的 API 代理
+// Next.js rewrites 会将 /api/* 代理到 http://localhost:8000/api/*
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || ''
 
 class ApiClient {
   private baseUrl: string
@@ -14,9 +16,9 @@ class ApiClient {
   }
 
   /**
-   * 通用请求方法
+   * 通用请求方法（公开，允许直接调用）
    */
-  private async request<T>(
+  async request<T>(
     endpoint: string,
     options?: RequestInit
   ): Promise<T> {
@@ -259,6 +261,119 @@ class ApiClient {
    */
   async getGameTools(): Promise<{ tools: any[] }> {
     return this.request('/api/game/tools')
+  }
+
+  /**
+   * 获取最新的自动保存
+   */
+  async getLatestAutoSave(userId: string = 'default_user'): Promise<{
+    success: boolean
+    auto_save_id?: number
+    game_state?: any
+    turn_number?: number
+    created_at?: string
+  }> {
+    try {
+      return this.request(`/api/game/auto-save/${userId}`)
+    } catch (error: any) {
+      // 如果没有自动保存记录，返回空结果而不是抛出错误
+      if (error.message?.includes('404') || error.message?.includes('没有自动保存记录')) {
+        return { success: false }
+      }
+      throw error
+    }
+  }
+
+  // ==================== 存档管理API ====================
+
+  /**
+   * 保存游戏
+   */
+  async saveGame(data: {
+    user_id?: string
+    slot_id: number
+    save_name: string
+    game_state: any
+  }): Promise<{
+    success: boolean
+    save_id: number
+    message: string
+  }> {
+    return this.request('/api/game/save', {
+      method: 'POST',
+      body: JSON.stringify({
+        user_id: data.user_id || 'default_user',
+        slot_id: data.slot_id,
+        save_name: data.save_name,
+        game_state: data.game_state
+      }),
+    })
+  }
+
+  /**
+   * 获取用户的所有存档列表
+   */
+  async getSaves(userId: string = 'default_user'): Promise<{
+    success: boolean
+    saves: Array<{
+      save_id: number
+      slot_id: number
+      save_name: string
+      metadata: any
+      screenshot_url?: string
+      created_at: string
+      updated_at: string
+    }>
+  }> {
+    return this.request(`/api/game/saves/${userId}`)
+  }
+
+  /**
+   * 加载游戏存档
+   */
+  async loadSave(saveId: number): Promise<{
+    success: boolean
+    game_state?: any
+    metadata?: any
+    save_info?: any
+  }> {
+    return this.request(`/api/game/save/${saveId}`)
+  }
+
+  /**
+   * 删除存档
+   */
+  async deleteSave(saveId: number): Promise<{
+    success: boolean
+    message: string
+  }> {
+    return this.request(`/api/game/save/${saveId}`, {
+      method: 'DELETE',
+    })
+  }
+
+  /**
+   * 获取存档的快照列表
+   */
+  async getSaveSnapshots(saveId: number): Promise<{
+    success: boolean
+    snapshots: Array<{
+      snapshot_id: number
+      turn_number: number
+      created_at: string
+    }>
+  }> {
+    return this.request(`/api/game/save/${saveId}/snapshots`)
+  }
+
+  /**
+   * 加载快照
+   */
+  async loadSnapshot(snapshotId: number): Promise<{
+    success: boolean
+    game_state?: any
+  }> {
+    return this.request(`/api/game/snapshot/${snapshotId}`)
   }
 
   // ==================== 世界管理API ====================

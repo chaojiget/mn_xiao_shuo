@@ -196,6 +196,7 @@ export const useGameState = (initialState?: GameState) => {
   const initGame = useCallback((config?: Partial<GameState>) => {
     const defaultState: GameState = {
       version: "1.0.0",
+      turn_number: 0,
       player: {
         hp: 100,
         maxHp: 100,

@@ -36,6 +36,7 @@ def init_game_engine(llm_client, db_path: str = None):
 
 class InitGameRequest(BaseModel):
     storyId: Optional[str] = None
+    worldId: Optional[str] = None  # WorldPack ID
     playerConfig: Optional[Dict[str, Any]] = None
 
 
@@ -61,24 +62,73 @@ class LoadGameRequest(BaseModel):
 
 @router.post("/init")
 async def init_game(request: InitGameRequest):
-    """初始化新游戏"""
+    """初始化新游戏
+
+    支持两种模式：
+    1. 使用worldId从WorldPack加载预生成世界
+    2. 使用storyId创建默认世界
+    """
     if not game_engine:
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        state = game_engine.init_game(story_id=request.storyId)
+        # 如果提供了worldId，从WorldPack加载
+        if request.worldId:
+            from services.world_loader import WorldLoader
+            from pathlib import Path
 
-        return {
-            "success": True,
-            "state": state.model_dump(),
-            "narration": "欢迎来到这个充满冒险的世界！你站在广场中央，前方是未知的旅程...",
-            "suggestions": [
+            # 获取数据库路径
+            project_root = Path(__file__).parent.parent.parent.parent
+            db_path = project_root / "data" / "sqlite" / "novel.db"
+
+            loader = WorldLoader(str(db_path))
+            state = loader.load_and_convert(request.worldId)
+
+            if not state:
+                raise HTTPException(status_code=404, detail=f"世界包 {request.worldId} 不存在")
+
+            # 获取世界信息用于叙事
+            world_title = state.metadata.get("worldPackTitle", "神秘世界")
+            world_tone = state.world.variables.get("world_tone", "epic")
+
+            # 根据基调定制开场白
+            first_location = state.map.nodes[0].name if state.map.nodes else "起点"
+            tone_narrations = {
+                "epic": f"欢迎来到{world_title}！史诗般的冒险即将开始。你站在{first_location}，感受到命运的召唤...",
+                "dark": f"黑暗笼罩着{world_title}...你发现自己身处{first_location}，周围弥漫着不祥的气息...",
+                "cozy": f"欢迎来到温馨的{world_title}！你站在{first_location}，阳光洒在身上，冒险即将开始！",
+                "mystery": f"神秘的{world_title}向你敞开大门...你站在{first_location}，感觉这里隐藏着许多秘密...",
+                "whimsical": f"进入奇幻的{world_title}！你出现在{first_location}，周围充满了魔法和惊喜..."
+            }
+
+            narration = tone_narrations.get(world_tone, tone_narrations["epic"])
+
+            suggestions = [
+                "环顾四周",
+                "查看背包",
+                "查看任务",
+                f"探索{first_location}"
+            ]
+
+        else:
+            # 默认模式
+            state = game_engine.init_game(story_id=request.storyId)
+            narration = "欢迎来到这个充满冒险的世界！你站在广场中央，前方是未知的旅程..."
+            suggestions = [
                 "查看背包",
                 "环顾四周",
                 "向北走",
                 "查看任务"
             ]
+
+        return {
+            "success": True,
+            "state": state.model_dump(),
+            "narration": narration,
+            "suggestions": suggestions
         }
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"初始化游戏失败: {str(e)}")
 
@@ -112,6 +162,21 @@ async def process_turn(request: GameTurnRequestModel):
 
         response = await game_engine.process_turn(turn_request)
         print(f"[DEBUG] Turn processed successfully")
+
+        # 自动保存游戏状态到数据库
+        if save_service:
+            try:
+                auto_save_id = save_service.save_game(
+                    user_id="default_user",
+                    slot_id=0,  # 0 表示自动保存槽位
+                    save_name="自动保存",
+                    game_state=state.model_dump(),
+                    auto_save=True
+                )
+                print(f"[DEBUG] 💾 自动保存成功: auto_save_id={auto_save_id}")
+            except Exception as e:
+                print(f"[WARNING] 自动保存失败: {e}")
+                # 不阻断游戏流程
 
         return {
             "success": True,
@@ -402,15 +467,17 @@ async def get_latest_auto_save(user_id: str = "default_user"):
         auto_save = save_service.get_latest_auto_save(user_id)
 
         if not auto_save:
-            raise HTTPException(status_code=404, detail="没有自动保存记录")
+            # 没有自动保存记录时返回success: false，不抛出404
+            return {
+                "success": False,
+                "message": "没有自动保存记录"
+            }
 
         return {
             "success": True,
             **auto_save
         }
 
-    except HTTPException:
-        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"获取自动保存失败: {str(e)}")
 
@@ -468,16 +535,15 @@ async def create_quest(request: CreateQuestRequest):
 
     try:
         # 调用游戏工具的 create_quest
-        from agents.game_tools_mcp import create_quest as mcp_create_quest
+        from agents.game_tools_langchain import create_quest
 
-        result = await mcp_create_quest({
-            "quest_id": request.quest_id,
-            "quest_type": request.quest_type,
+        result = create_quest.invoke({
             "title": request.title,
             "description": request.description,
-            "level_requirement": request.level_requirement,
             "objectives": request.objectives,
-            "rewards": request.rewards
+            "rewards": request.rewards,
+            "quest_type": request.quest_type,
+            "level_requirement": request.level_requirement
         })
 
         return result
@@ -504,9 +570,13 @@ async def get_quests(status: Optional[str] = None):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import get_quests as mcp_get_quests
+        from agents.game_tools_langchain import get_quests
 
-        result = await mcp_get_quests({"status": status} if status else {})
+        # LangChain tool 需要使用 .invoke() 方法
+        if status:
+            result = get_quests.invoke({"status": status})
+        else:
+            result = get_quests.invoke({})
 
         return {
             "success": True,
@@ -535,9 +605,9 @@ async def activate_quest(quest_id: str):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import activate_quest as mcp_activate_quest
+        from agents.game_tools_langchain import activate_quest
 
-        result = await mcp_activate_quest({"quest_id": quest_id})
+        result = activate_quest.invoke({"quest_id": quest_id})
 
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("message"))
@@ -573,9 +643,9 @@ async def update_quest_progress(quest_id: str, request: UpdateQuestProgressReque
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import update_quest_objective
+        from agents.game_tools_langchain import update_quest_objective
 
-        result = await update_quest_objective({
+        result = update_quest_objective.invoke({
             "quest_id": quest_id,
             "objective_id": request.objective_id,
             "amount": request.amount
@@ -612,9 +682,9 @@ async def complete_quest(quest_id: str):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import complete_quest as mcp_complete_quest
+        from agents.game_tools_langchain import complete_quest
 
-        result = await mcp_complete_quest({"quest_id": quest_id})
+        result = complete_quest.invoke({"quest_id": quest_id})
 
         if not result.get("success"):
             raise HTTPException(status_code=400, detail=result.get("message"))
@@ -676,9 +746,18 @@ async def create_npc(request: CreateNPCRequest):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import create_npc as mcp_create_npc
+        from agents.game_tools_langchain import create_npc
 
-        result = await mcp_create_npc(request.model_dump())
+        result = create_npc.invoke({
+            "npc_id": request.npc_id,
+            "name": request.name,
+            "role": request.role,
+            "location": request.location,
+            "description": request.description,
+            "personality_traits": request.personality_traits,
+            "speech_style": request.speech_style,
+            "goals": request.goals
+        })
 
         return result
 
@@ -706,7 +785,7 @@ async def get_npcs(location: Optional[str] = None, status: Optional[str] = None)
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import get_npcs as mcp_get_npcs
+        from agents.game_tools_langchain import get_npcs
 
         params = {}
         if location:
@@ -714,7 +793,7 @@ async def get_npcs(location: Optional[str] = None, status: Optional[str] = None)
         if status:
             params["status"] = status
 
-        result = await mcp_get_npcs(params)
+        result = get_npcs.invoke(params)
 
         return {
             "success": True,
@@ -749,9 +828,9 @@ async def update_npc_relationship(npc_id: str, request: UpdateNPCRelationshipReq
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import update_npc_relationship as mcp_update_relationship
+        from agents.game_tools_langchain import update_npc_relationship
 
-        result = await mcp_update_relationship({
+        result = update_npc_relationship.invoke({
             "npc_id": npc_id,
             "affinity_delta": request.affinity_delta,
             "trust_delta": request.trust_delta,
@@ -790,9 +869,9 @@ async def add_npc_memory(npc_id: str, request: AddNPCMemoryRequest):
         raise HTTPException(status_code=500, detail="游戏引擎未初始化")
 
     try:
-        from agents.game_tools_mcp import add_npc_memory as mcp_add_memory
+        from agents.game_tools_langchain import add_npc_memory
 
-        result = await mcp_add_memory({
+        result = add_npc_memory.invoke({
             "npc_id": npc_id,
             "event_type": request.event_type,
             "summary": request.summary,

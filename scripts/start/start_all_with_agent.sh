@@ -48,7 +48,7 @@ if [ -z "$OPENROUTER_BASE_URL" ]; then
 fi
 
 if [ -z "$DEFAULT_MODEL" ]; then
-    export DEFAULT_MODEL="deepseek/deepseek-chat"
+    export DEFAULT_MODEL="deepseek/deepseek-v3.1-terminus"
 fi
 
 # 创建必要的目录

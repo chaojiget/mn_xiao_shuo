@@ -35,7 +35,7 @@ class LLMConfigLoader:
             return {
                 "backend": "langchain",
                 "langchain": {
-                    "model": "deepseek/deepseek-chat",
+                    "model": "deepseek/deepseek-v3.1-terminus",
                     "temperature": 0.7
                 }
             }
@@ -110,7 +110,7 @@ class LLMConfigLoader:
         print(f"后端类型: {backend_type}")
 
         if backend_type == "langchain":
-            print(f"默认模型: {backend_config.get('model', 'deepseek/deepseek-chat')}")
+            print(f"默认模型: {backend_config.get('model', 'deepseek/deepseek-v3.1-terminus')}")
             print(f"温度: {backend_config.get('temperature', 0.7)}")
             print(f"成本: 低 (~$0.001/回合)")
         elif backend_type == "litellm":

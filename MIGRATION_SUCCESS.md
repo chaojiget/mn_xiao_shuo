@@ -135,7 +135,7 @@ LangChain (@tool) → ChatOpenAI → OpenRouter → Models
 
 | 模型 | 标识符 | 用途 |
 |-----|--------|------|
-| **DeepSeek Chat** | `deepseek/deepseek-chat` | 默认，高性价比 |
+| **DeepSeek Chat** | `deepseek/deepseek-v3.1-terminus` | 默认，高性价比 |
 | **Claude 3.5 Sonnet** | `anthropic/claude-3.5-sonnet` | 高质量推理 |
 | **Claude 3 Haiku** | `anthropic/claude-3-haiku` | 快速任务 |
 | **GPT-4 Turbo** | `openai/gpt-4-turbo` | 备用 |
@@ -157,7 +157,7 @@ uv pip install -r requirements.txt
 ```bash
 OPENROUTER_API_KEY=your_key_here
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
-DEFAULT_MODEL=deepseek/deepseek-chat
+DEFAULT_MODEL=deepseek/deepseek-v3.1-terminus
 ```
 
 ### 3. 启动服务
@@ -176,7 +176,7 @@ DEFAULT_MODEL=deepseek/deepseek-chat
 from web.backend.agents import DMAgentLangChain
 
 # 初始化 Agent
-agent = DMAgentLangChain(model_name="deepseek/deepseek-chat")
+agent = DMAgentLangChain(model_name="deepseek/deepseek-v3.1-terminus")
 
 # 处理游戏回合
 async for event in agent.process_turn(

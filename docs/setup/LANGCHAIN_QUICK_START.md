@@ -52,15 +52,15 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 # OpenRouter Base URL (可选，默认为下面的值)
 OPENROUTER_BASE_URL=https://openrouter.ai/api/v1
 
-# 默认模型 (可选，默认为 deepseek/deepseek-chat)
-DEFAULT_MODEL=deepseek/deepseek-chat
+# 默认模型 (可选，默认为 deepseek/deepseek-v3.1-terminus)
+DEFAULT_MODEL=deepseek/deepseek-v3.1-terminus
 
 # 数据库配置
 DATABASE_URL=sqlite:///./data/sqlite/novel.db
 ```
 
 **支持的模型**:
-- `deepseek/deepseek-chat` - DeepSeek (默认，高性价比)
+- `deepseek/deepseek-v3.1-terminus` - DeepSeek (默认，高性价比)
 - `anthropic/claude-3.5-sonnet` - Claude 3.5 Sonnet
 - `anthropic/claude-3-haiku` - Claude 3 Haiku
 - `openai/gpt-4-turbo` - GPT-4 Turbo
@@ -133,7 +133,7 @@ npm run dev
 from web.backend.agents.dm_agent_langchain import DMAgentLangChain
 
 # 初始化 Agent
-agent = DMAgentLangChain(model_name="deepseek/deepseek-chat")
+agent = DMAgentLangChain(model_name="deepseek/deepseek-v3.1-terminus")
 
 # 处理游戏回合（流式）
 async for event in agent.process_turn(
@@ -156,7 +156,7 @@ from web.backend.llm import LangChainBackend, LLMMessage
 
 # 初始化后端
 backend = LangChainBackend(config={
-    "model": "deepseek/deepseek-chat",
+    "model": "deepseek/deepseek-v3.1-terminus",
     "temperature": 0.7
 })
 

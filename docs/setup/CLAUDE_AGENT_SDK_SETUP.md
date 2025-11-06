@@ -51,7 +51,7 @@ export LITELLM_MASTER_KEY=$(grep LITELLM_MASTER_KEY .env | cut -d '=' -f2-)
 # 配置 Claude Agent SDK
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 #### 3. 运行你的 Claude Agent SDK 代码
@@ -101,7 +101,7 @@ export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
 **配置为 OpenRouter 模型**:
 ```bash
 # DeepSeek（推荐，性价比最高）
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 
 # 或其他模型
 export ANTHROPIC_MODEL=openrouter/anthropic/claude-sonnet-4.5
@@ -119,7 +119,7 @@ export ANTHROPIC_MODEL=openrouter/qwen/qwen-2.5-72b-instruct
 
 | 场景 | 模型 | 成本 | 说明 |
 |------|------|------|------|
-| **默认推荐** | `openrouter/deepseek/deepseek-chat-v3-0324` | 💰 极低 | 中文友好，性价比最高 |
+| **默认推荐** | `openrouter/deepseek/deepseek-v3.1-terminus-v3-0324` | 💰 极低 | 中文友好，性价比最高 |
 | 简单任务 | `openrouter/qwen/qwen-2.5-72b-instruct` | 💰 低 | 中文优化，快速响应 |
 | 高质量输出 | `openrouter/anthropic/claude-sonnet-4.5` | 💰💰💰 高 | 原生 Claude 模型 |
 | 快速原型 | `openrouter/anthropic/claude-3.5-haiku` | 💰💰 中 | Claude 快速模型 |
@@ -148,7 +148,7 @@ echo "ANTHROPIC_MODEL=$ANTHROPIC_MODEL"
 ```
 ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 ANTHROPIC_AUTH_TOKEN=sk-litellm-xxxxxxxxxxxxxxxx
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ### 测试连接
@@ -204,7 +204,7 @@ source .env
 # 设置 Claude Agent SDK
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 
 # 运行你的程序
 python your_script.py
@@ -218,7 +218,7 @@ services:
     environment:
       - ANTHROPIC_BASE_URL=http://litellm-proxy:4000
       - ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}
-      - ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+      - ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
     depends_on:
       - litellm-proxy
 
@@ -249,7 +249,7 @@ Environment="OPENROUTER_API_KEY=sk-or-v1-xxxxx"
 Environment="LITELLM_MASTER_KEY=sk-litellm-xxxxx"
 Environment="ANTHROPIC_BASE_URL=http://0.0.0.0:4000"
 Environment="ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}"
-Environment="ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324"
+Environment="ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324"
 ExecStart=/path/to/start_litellm_proxy.sh
 Restart=always
 
@@ -277,7 +277,7 @@ python your_script.py
 
 ```bash
 # DeepSeek（默认）
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 
 # 或改为 Claude
 ANTHROPIC_MODEL=openrouter/anthropic/claude-sonnet-4.5
@@ -307,7 +307,7 @@ env | grep ANTHROPIC
 source .env
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ### 问题2: 连接被拒绝
@@ -349,7 +349,7 @@ export ANTHROPIC_AUTH_TOKEN=$(grep LITELLM_MASTER_KEY .env | cut -d '=' -f2-)
 export ANTHROPIC_MODEL=deepseek  # ❌ 缺少 openrouter/ 前缀
 
 # 正确示例
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324  # ✅
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324  # ✅
 ```
 
 ## 最佳实践
@@ -362,7 +362,7 @@ OPENROUTER_API_KEY=sk-or-v1-xxxxx
 LITELLM_MASTER_KEY=sk-litellm-xxxxx
 ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 在脚本开头：
@@ -405,7 +405,7 @@ litellm --config ./config/litellm_config.yaml --port 4000 --debug > litellm.log 
 ```bash
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 你可以：

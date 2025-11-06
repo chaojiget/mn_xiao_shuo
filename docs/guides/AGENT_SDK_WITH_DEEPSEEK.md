@@ -170,14 +170,14 @@ model_list:
   # 将 claude-3-5-sonnet 请求路由到 DeepSeek
   - model_name: claude-3-5-sonnet-20241022
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat
+      model: openrouter/deepseek/deepseek-v3.1-terminus
       api_base: https://openrouter.ai/api/v1
       api_key: ${OPENROUTER_API_KEY}
 
   # 所有 Claude Sonnet 请求都路由到 DeepSeek
   - model_name: claude-sonnet-4-20250514
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat
+      model: openrouter/deepseek/deepseek-v3.1-terminus
       api_base: https://openrouter.ai/api/v1
       api_key: ${OPENROUTER_API_KEY}
 
@@ -215,13 +215,13 @@ litellm_settings:
 
 4. LiteLLM Proxy 接收请求
    查找路由规则:
-   claude-3-5-sonnet-20241022 → deepseek/deepseek-chat
+   claude-3-5-sonnet-20241022 → deepseek/deepseek-v3.1-terminus
    ↓
 
 5. LiteLLM 转换并发送
    POST https://openrouter.ai/api/v1/chat/completions
    {
-     "model": "deepseek/deepseek-chat",
+     "model": "deepseek/deepseek-v3.1-terminus",
      "messages": [...]
    }
    ↓

@@ -4,9 +4,19 @@
 
 import json
 import asyncio
+import logging
+from datetime import datetime
 from pathlib import Path
 from typing import Dict, List, Any, Optional, AsyncIterator
 from pydantic import BaseModel
+
+# 配置日志
+logging.basicConfig(
+    level=logging.DEBUG,
+    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
+    datefmt='%H:%M:%S'
+)
+logger = logging.getLogger(__name__)
 
 from .game_tools import GameTools, GameState, PlayerState, WorldState, GameMap, RollCheckParams
 from .quests import QuestEngine
@@ -80,15 +90,15 @@ class GameEngine:
 - 世界遵循基本的物理和魔法规则
 
 **你的职责**：
-1. 根据玩家输入，生成沉浸式的旁白描述
-2. 通过工具调用更新游戏状态（生命值、物品、位置等）
-3. 保持叙事连贯性和逻辑一致性
-4. 提供有趣的挑战和选择
+1. 根据玩家输入，生成沉浸式的旁白描述（200-400字，详细生动）
+2. **必须**通过工具调用更新游戏状态（生命值、物品、位置等）
+3. **严格保持叙事连贯性** - 继续上一回合的场景，不要突然跳转
+4. 提供有趣的挑战、细节描述和感官体验
 
 **输出格式要求**：
 你必须返回JSON格式，包含以下字段：
 {{
-  "narration": "沉浸式的旁白文本",
+  "narration": "沉浸式的旁白文本（详细描述玩家的感受、环境细节、NPC反应等）",
   "tool_calls": [
     {{"name": "工具名", "arguments": {{...}}}}
   ],
@@ -96,11 +106,25 @@ class GameEngine:
   "suggestions": ["玩家可能的下一步行动建议（3-5个）"]
 }}
 
-**重要规则**：
-- 所有状态变更必须通过工具调用完成
-- 不要虚构玩家没有的物品或能力
-- 检定失败也要给出有趣的结果
-- 保持旁白简洁生动（100-300字为宜）
+**❗ 关键规则（必须遵守）**：
+1. **物品操作规则**：
+   - 玩家扔掉/使用/丢弃物品 → 必须调用 `remove_item` 工具
+   - 玩家获得物品 → 必须调用 `add_item` 工具
+   - 玩家移动位置 → 必须调用 `set_location` 工具
+   - 玩家受伤/治疗 → 必须调用 `update_hp` 工具
+
+2. **叙事连贯性规则**：
+   - 阅读"最近发生"中的事件，**必须延续上一回合的场景**
+   - 如果玩家在通风管道，继续在通风管道
+   - 如果玩家在对话，继续对话
+   - 不要突然跳转到其他场景
+   - 如果玩家提问（如"回应啥？"），解释上一回合提到的内容
+
+3. **描述详细度**：
+   - 每个场景至少200字
+   - 包含：视觉、听觉、触觉、气味等感官细节
+   - 描述NPC的表情、语气、动作
+   - 描述环境的氛围、光线、温度
 
 **当前游戏状态**：
 - 位置：{state.player.location}
@@ -123,25 +147,36 @@ class GameEngine:
         active_quests = [q for q in state.quests if q.status == "active"]
         quests_info = "\n".join([f"  - {q.title}: {q.description}" for q in active_quests[:3]])
 
-        # 获取背包摘要
-        inventory_info = "\n".join([f"  - {item.name} x{item.quantity}" for item in state.player.inventory[:5]])
+        # 获取背包详细信息（包含完整物品列表）
+        inventory_info = "\n".join([
+            f"  - {item.name} x{item.quantity} ({item.description if hasattr(item, 'description') and item.description else item.type})"
+            for item in state.player.inventory[:10]
+        ])
 
-        # 获取近期日志
-        recent_logs = state.log[-5:] if state.log else []
-        logs_info = "\n".join([f"  [{entry.actor}] {entry.text[:50]}..." for entry in recent_logs])
+        # 获取近期日志（更多回合，更完整的上下文）
+        recent_logs = state.log[-8:] if state.log else []  # 从5条增加到8条
+        logs_info = "\n".join([
+            f"  [{entry.actor}] {entry.text[:100]}..."  # 从50字增加到100字
+            for entry in recent_logs
+        ])
 
+        # 🔥 关键改进：将"最近发生"放在最前面，强调连贯性
         return f"""
-**当前情境**：
-位置：{location_info}
+**❗ 重要：请阅读"最近发生"，延续上一回合的场景！**
 
-活跃任务：
+**最近发生的事件**（必须延续这些场景）：
+{logs_info or "  这是游戏开始"}
+
+---
+
+**当前位置标记**（仅供参考，实际场景以"最近发生"为准）：
+{location_info}
+
+**活跃任务**：
 {quests_info or "  无"}
 
-背包物品：
+**背包物品**（扔掉/使用时必须调用remove_item工具）：
 {inventory_info or "  空"}
-
-最近发生：
-{logs_info or "  无"}
 """
 
     async def _enter_location(self, location_id: str, turn: int, character_state: Dict) -> Dict[str, Any]:
@@ -224,8 +259,18 @@ class GameEngine:
 
     async def process_turn(self, request: GameTurnRequest) -> GameTurnResponse:
         """处理游戏回合（非流式）"""
+        logger.info("=" * 80)
+        logger.info(f"🎮 开始处理游戏回合")
+        logger.info(f"📝 玩家输入: {request.playerInput}")
+
         state = request.currentState
         tools = GameTools(state)
+
+        # 记录当前游戏状态
+        logger.debug(f"🗺️  当前位置: {state.player.location}")
+        logger.debug(f"❤️  玩家状态: HP={state.player.hp}/{state.player.maxHp}, 金币={state.player.money}")
+        logger.debug(f"🎒 背包物品: {len(state.player.inventory)} 件")
+        logger.debug(f"⏱️  当前回合: {state.world.time}")
 
         # 构建提示词
         system_prompt = self._build_system_prompt(state)
@@ -239,9 +284,6 @@ class GameEngine:
 
         # 调用LLM（带工具）
         try:
-            # 导入LLMMessage
-            from llm.base import LLMMessage
-
             # 合并所有消息到一个prompt
             full_prompt = "\n\n".join([msg["content"] for msg in messages if msg["role"] != "system"])
             system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), None)
@@ -281,19 +323,34 @@ class GameEngine:
 请返回JSON格式,包含narration(旁白)、tool_calls(工具调用列表)、hints(提示)、suggestions(建议)。
 """
 
-            # 构建消息列表
-            llm_messages = []
-            if system_msg:
-                llm_messages.append(LLMMessage(role="system", content=system_msg))
-            llm_messages.append(LLMMessage(role="user", content=enhanced_prompt))
+            # ===== 详细日志：发送给 LLM 的内容 =====
+            logger.info("🤖 准备调用 LLM")
+            logger.debug("=" * 60)
+            logger.debug("📋 SYSTEM PROMPT:")
+            logger.debug(system_msg[:500] + "..." if len(system_msg) > 500 else system_msg)
+            logger.debug("-" * 60)
+            logger.debug("📋 USER PROMPT (前500字符):")
+            logger.debug(enhanced_prompt[:500] + "..." if len(enhanced_prompt) > 500 else enhanced_prompt)
+            logger.debug("-" * 60)
+            logger.debug("📊 RESPONSE SCHEMA:")
+            logger.debug(json.dumps(response_schema, indent=2, ensure_ascii=False))
+            logger.debug("=" * 60)
 
-            # 使用新的后端抽象层
+            # 使用新的后端抽象层 (LangChain 需要 prompt + schema 参数)
             response = await self.llm_backend.generate_structured(
-                messages=llm_messages,
-                response_schema=response_schema,
+                prompt=enhanced_prompt,
+                schema=response_schema,
+                system=system_msg,
                 temperature=0.7,
                 max_tokens=1000
             )
+
+            # ===== 详细日志：LLM 的响应 =====
+            logger.info("✅ LLM 响应成功")
+            logger.debug("=" * 60)
+            logger.debug("📨 LLM RESPONSE (完整 JSON):")
+            logger.debug(json.dumps(response, indent=2, ensure_ascii=False))
+            logger.debug("=" * 60)
 
             # 解析响应（response已经是解析好的JSON dict）
             narration = response.get("narration", "")
@@ -301,21 +358,33 @@ class GameEngine:
             hints = response.get("hints", [])
             suggestions = response.get("suggestions", [])
 
+            logger.info(f"📖 旁白长度: {len(narration)} 字符")
+            logger.info(f"🛠️  工具调用数量: {len(tool_calls)}")
+            logger.info(f"💡 提示数量: {len(hints)}")
+            logger.info(f"🎯 建议数量: {len(suggestions)}")
+
             # 执行工具调用
             executed_actions = []
-            for tool_call in tool_calls:
+            for i, tool_call in enumerate(tool_calls, 1):
                 tool_name = tool_call.get("name")
                 arguments = tool_call.get("arguments", {})
+
+                logger.debug(f"🔧 工具调用 #{i}: {tool_name}")
+                logger.debug(f"   参数: {json.dumps(arguments, ensure_ascii=False)}")
 
                 if hasattr(tools, tool_name):
                     func = getattr(tools, tool_name)
                     result = func(**arguments)
+
+                    logger.debug(f"   ✅ 结果: {result}")
 
                     executed_actions.append({
                         "type": tool_name,
                         "arguments": arguments,
                         "result": result
                     })
+                else:
+                    logger.warning(f"   ⚠️  工具不存在: {tool_name}")
 
             # 增加回合数
             state.world.time += 1
@@ -389,9 +458,11 @@ class GameEngine:
                             suggestions.append(chip)
 
                 except Exception as e:
+                    logger.error(f"⚠️  世界系统集成出错: {e}")
                     print(f"⚠️  世界系统集成出错: {e}")
 
-            return GameTurnResponse(
+            # 最终响应日志
+            final_response = GameTurnResponse(
                 narration=narration,
                 actions=executed_actions,
                 hints=hints,
@@ -404,8 +475,16 @@ class GameEngine:
                 }
             )
 
+            logger.info(f"🎬 回合完成 (第 {state.world.time} 回合)")
+            logger.info(f"📜 旁白前100字: {narration[:100]}..." if len(narration) > 100 else f"📜 旁白: {narration}")
+            logger.info("=" * 80)
+
+            return final_response
+
         except Exception as e:
             # 错误处理：返回安全的失败响应
+            logger.error(f"❌ 处理回合时发生错误: {str(e)}", exc_info=True)
+            logger.error("=" * 80)
             return GameTurnResponse(
                 narration=f"[系统错误] 无法处理你的行动。请重试。(错误: {str(e)})",
                 actions=[],
@@ -490,15 +569,25 @@ class GameEngine:
         )
 
         # 创建初始玩家
+        from .game_tools import InventoryItem
+
         player = PlayerState(
             hp=100,
             maxHp=100,
             stamina=100,
             maxStamina=100,
             traits=["勇敢", "好奇"],
-            inventory=[],
+            inventory=[
+                InventoryItem(
+                    id="gold_coin",
+                    name="金币",
+                    description="闪闪发光的金币，可以用于交易或吸引注意力",
+                    quantity=50,
+                    type="misc"
+                )
+            ],
             location="start",
-            money=50
+            money=0  # 金币现在在背包中
         )
 
         # 创建初始世界

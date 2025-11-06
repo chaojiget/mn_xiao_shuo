@@ -219,7 +219,7 @@ export ANTHROPIC_MODEL=deepseek  # 或其他模型别名
 ```bash
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ## 相关文档

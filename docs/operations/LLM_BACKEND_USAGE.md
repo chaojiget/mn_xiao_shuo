@@ -352,7 +352,7 @@ agents:
 model_list:
   - model_name: deepseek
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat
+      model: openrouter/deepseek/deepseek-v3.1-terminus
       api_key: ${OPENROUTER_API_KEY}
 
   - model_name: qwen

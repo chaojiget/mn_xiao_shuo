@@ -69,7 +69,7 @@ LITELLM_MASTER_KEY=sk-litellm-xxxxxxxxxxxxxxxx  # 自动生成
 # Claude Agent SDK 配置（指向 LiteLLM Proxy）
 ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ### 必需的环境变量（.env 文件）
@@ -157,7 +157,7 @@ OPENROUTER_API_KEY=sk-or-v1-xxxxx
 
 🤖 Claude Agent SDK 配置:
    ANTHROPIC_BASE_URL=http://0.0.0.0:4000
-   ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+   ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 
 📊 进程 ID:
    LiteLLM Proxy: 12345
@@ -338,7 +338,7 @@ echo $ANTHROPIC_MODEL
 ```bash
 export ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 export ANTHROPIC_AUTH_TOKEN=$(grep LITELLM_MASTER_KEY .env | cut -d '=' -f2-)
-export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ## 修改的文件列表
@@ -358,7 +358,7 @@ export ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
 LITELLM_MASTER_KEY=sk-litellm-xxxxx
 ANTHROPIC_BASE_URL=http://0.0.0.0:4000
 ANTHROPIC_AUTH_TOKEN=${LITELLM_MASTER_KEY}
-ANTHROPIC_MODEL=openrouter/deepseek/deepseek-chat-v3-0324
+ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
 ```
 
 ## 总结

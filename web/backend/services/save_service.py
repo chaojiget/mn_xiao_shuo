@@ -61,21 +61,45 @@ class SaveService:
         Raises:
             ValueError: 如果 slot_id 不在 1-10 范围内
         """
-        if not 1 <= slot_id <= 10:
-            raise ValueError(f"存档槽位必须在 1-10 之间，当前: {slot_id}")
+        # slot_id 0 保留给自动保存
+        if not 0 <= slot_id <= 10:
+            raise ValueError(f"存档槽位必须在 0-10 之间（0为自动保存），当前: {slot_id}")
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         try:
-            # 提取元数据
+            # 提取元数据 - 优化以支持多种游戏状态格式
+            player = game_state.get("player", {})
+            world = game_state.get("world", {})
+            game_map = game_state.get("map", {})
+
+            # 回合数：优先使用 world.time，其次 turn_number
+            turn_number = world.get("time", game_state.get("turn_number", 0))
+
+            # 位置：尝试多种来源
+            location = None
+            # 1. 从 player.location 获取
+            if player.get("location"):
+                location = player.get("location")
+            # 2. 从 map.currentNodeId 查找节点名称
+            elif game_map.get("currentNodeId") and game_map.get("nodes"):
+                current_node_id = game_map.get("currentNodeId")
+                for node in game_map.get("nodes", []):
+                    if node.get("id") == current_node_id:
+                        location = node.get("name", current_node_id)
+                        break
+            # 3. 从 world.current_location 获取
+            elif world.get("current_location"):
+                location = world.get("current_location")
+
             metadata = {
-                "turn_number": game_state.get("turn_number", 0),
+                "turn_number": turn_number,
                 "playtime": game_state.get("playtime", 0),
-                "location": game_state.get("world", {}).get("current_location"),
-                "level": game_state.get("player", {}).get("level", 1),
-                "hp": game_state.get("player", {}).get("hp", 100),
-                "max_hp": game_state.get("player", {}).get("max_hp", 100)
+                "location": location,
+                "level": player.get("level", 1),
+                "hp": player.get("hp", 100),
+                "max_hp": player.get("maxHp", player.get("max_hp", 100))  # 支持 maxHp 和 max_hp
             }
 
             # 序列化游戏状态和元数据

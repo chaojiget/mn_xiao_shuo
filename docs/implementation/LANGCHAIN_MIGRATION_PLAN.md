@@ -135,7 +135,7 @@ DeepSeek / Claude / GPT-4 / Qwen
    from langchain_openai import ChatOpenAI
 
    model = ChatOpenAI(
-       model="deepseek/deepseek-chat",
+       model="deepseek/deepseek-v3.1-terminus",
        base_url="https://openrouter.ai/api/v1",
        api_key=os.getenv("OPENROUTER_API_KEY")
    )
@@ -241,7 +241,7 @@ import os
 class DMAgentLangChain:
     """游戏主持人 Agent (LangChain 实现)"""
 
-    def __init__(self, model_name: str = "deepseek/deepseek-chat"):
+    def __init__(self, model_name: str = "deepseek/deepseek-v3.1-terminus"):
         # 初始化 OpenRouter 模型
         self.model = ChatOpenAI(
             model=model_name,
@@ -345,7 +345,7 @@ class LangChainBackend(LLMBackend):
 
         # 模型映射
         self.model_map = {
-            "deepseek": "deepseek/deepseek-chat",
+            "deepseek": "deepseek/deepseek-v3.1-terminus",
             "claude-sonnet": "anthropic/claude-3.5-sonnet",
             "gpt-4": "openai/gpt-4-turbo",
             "qwen": "qwen/qwen-2.5-72b-instruct"

@@ -24,7 +24,7 @@ class LangChainBackend(LLMBackend):
 
     配置示例:
     {
-        "model": "deepseek",  # 或 "deepseek/deepseek-chat"
+        "model": "deepseek",  # 或 "deepseek/deepseek-v3.1-terminus"
         "temperature": 0.7,
         "max_tokens": 4096,
         "streaming": True
@@ -46,7 +46,7 @@ class LangChainBackend(LLMBackend):
 
         # 模型名称映射
         self.model_map = {
-            "deepseek": "deepseek/deepseek-chat",
+            "deepseek": "deepseek/deepseek-v3.1-terminus",
             "claude-sonnet": "anthropic/claude-3.5-sonnet",
             "claude-haiku": "anthropic/claude-3-haiku",
             "gpt-4": "openai/gpt-4-turbo",

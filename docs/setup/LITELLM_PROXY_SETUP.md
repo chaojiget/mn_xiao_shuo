@@ -57,7 +57,7 @@ LITELLM_MASTER_KEY=sk-litellm-xxxxx
 
 在配置文件中定义了以下模型别名：
 
-- `deepseek` → `openrouter/deepseek/deepseek-chat-v3-0324` (推荐，性价比最高)
+- `deepseek` → `openrouter/deepseek/deepseek-v3.1-terminus-v3-0324` (推荐，性价比最高)
 - `claude-sonnet` → `openrouter/anthropic/claude-sonnet-4.5`
 - `claude-haiku` → `openrouter/anthropic/claude-3.5-haiku`
 - `gpt-4` → `openrouter/openai/gpt-4-turbo`
@@ -151,7 +151,7 @@ class LiteLLMBackend(LLMBackend):
 model_list:
   - model_name: deepseek
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat-v3-0324
+      model: openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
       api_key: os.environ/OPENROUTER_API_KEY  # 从环境变量读取
       api_base: https://openrouter.ai/api/v1
       max_tokens: 4000

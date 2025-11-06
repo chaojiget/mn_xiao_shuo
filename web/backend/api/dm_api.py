@@ -19,7 +19,7 @@ def init_dm_agent():
     """初始化 DM Agent"""
     global dm_agent
     from agents.dm_agent_langchain import DMAgentLangChain
-    dm_agent = DMAgentLangChain(model_name="deepseek/deepseek-chat")
+    dm_agent = DMAgentLangChain(model_name="deepseek/deepseek-v3.1-terminus")
     print("✅ DM Agent 已初始化 (LangChain)")
 
 

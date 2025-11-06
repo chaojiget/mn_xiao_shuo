@@ -29,6 +29,22 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
 
   const { gameState, setGameState, isConnected, setIsConnected, setError } = useGameStore();
 
+  // 从 gameState.log 恢复历史消息
+  useEffect(() => {
+    if (gameState?.log && gameState.log.length > 0 && messages.length === 0) {
+      console.log('[DmInterface] 恢复历史消息:', gameState.log.length);
+
+      const historicalMessages: DmMessage[] = gameState.log.map((entry: any, index: number) => ({
+        id: `history_${index}`,
+        role: entry.actor === 'player' ? 'user' : 'assistant',
+        content: entry.text,
+        timestamp: entry.timestamp || Date.now(),
+      }));
+
+      setMessages(historicalMessages);
+    }
+  }, [gameState]);
+
   // 自动滚动到底部
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -42,8 +58,12 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   useEffect(() => {
     if (!sessionId) return;
 
+    // WebSocket连接到后端 (端口8000)
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const wsUrl = `${protocol}//${window.location.host}/api/dm/ws/${sessionId}`;
+    const backendHost = process.env.NEXT_PUBLIC_API_URL?.replace('http://', '').replace('https://', '') || 'localhost:8000';
+    const wsUrl = `${protocol}//${backendHost}/api/dm/ws/${sessionId}`;
+
+    console.log('[DM WebSocket] 连接到:', wsUrl);
 
     try {
       const ws = new WebSocket(wsUrl);
@@ -143,27 +163,32 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
     }
   };
 
-  // 发送消息（同步 API）
+  // 发送消息（流式 API）
   const handleSendMessage = async () => {
     if (!input.trim() || !gameState) return;
+
+    const userInput = input.trim();
 
     const playerMessage: DmMessage = {
       id: Date.now().toString(),
       role: 'user',
-      content: input,
+      content: userInput,
       timestamp: Date.now(),
     };
 
     setMessages((prev) => [...prev, playerMessage]);
     setInput('');
     setIsTyping(true);
+    setStreamingText('');
 
     try {
-      const response = await fetch('/api/game/turn', {
+      // 使用流式API
+      const apiUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+      const response = await fetch(`${apiUrl}/api/game/turn/stream`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          playerInput: input,
+          playerInput: userInput,
           currentState: gameState,
         }),
       });
@@ -172,27 +197,76 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
         throw new Error(`API 错误: ${response.status}`);
       }
 
-      const data = await response.json();
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
 
-      // 添加 DM 回复
-      const dmMessage: DmMessage = {
-        id: Date.now().toString(),
-        role: 'assistant',
-        content: data.narration,
-        timestamp: Date.now(),
-      };
-
-      setMessages((prev) => [...prev, dmMessage]);
-
-      // 更新游戏状态
-      if (data.updatedState) {
-        setGameState(data.updatedState);
+      if (!reader) {
+        throw new Error('无法读取响应流');
       }
+
+      let buffer = '';
+      let fullNarration = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+
+        if (done) break;
+
+        // 解码数据
+        buffer += decoder.decode(value, { stream: true });
+
+        // 处理 SSE 格式 (data: {...}\n\n)
+        const lines = buffer.split('\n\n');
+        buffer = lines.pop() || ''; // 保留未完成的行
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const jsonStr = line.slice(6); // 移除 "data: " 前缀
+              const data = JSON.parse(jsonStr);
+
+              if (data.type === 'text' || data.type === 'narration') {
+                // 流式显示叙事文本
+                fullNarration += data.content;
+                setStreamingText(fullNarration);
+              } else if (data.type === 'state') {
+                // 更新游戏状态
+                if (data.state) {
+                  setGameState(data.state);
+                }
+              } else if (data.type === 'done') {
+                // 完成信号，可以处理metadata
+                console.log('[DM Interface] 回合完成:', data.metadata);
+              } else if (data.type === 'error') {
+                // 错误处理
+                setError(data.error || '未知错误');
+              }
+            } catch (parseError) {
+              console.error('[DM Interface] 解析SSE数据失败:', parseError, 'Line:', line);
+            }
+          }
+        }
+      }
+
+      // 流式完成后，将完整文本添加到消息历史
+      if (fullNarration) {
+        const dmMessage: DmMessage = {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: fullNarration,
+          timestamp: Date.now(),
+        };
+        setMessages((prev) => [...prev, dmMessage]);
+      }
+
+      setStreamingText('');
+      setIsTyping(false);
+
     } catch (error) {
       console.error('[DM Interface] 发送消息失败:', error);
       setError(error instanceof Error ? error.message : '发送消息失败');
-    } finally {
       setIsTyping(false);
+      setStreamingText('');
     }
   };
 

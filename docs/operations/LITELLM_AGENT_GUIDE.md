@@ -65,7 +65,7 @@ model_list:
   # DeepSeek V3 (便宜,中文好)
   - model_name: deepseek
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat
+      model: openrouter/deepseek/deepseek-v3.1-terminus
       api_key: ${OPENROUTER_API_KEY}
 
   # Qwen 2.5 (中文优化)

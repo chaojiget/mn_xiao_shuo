@@ -18,13 +18,11 @@ sys.path.insert(0, str(project_root))
 
 from src.utils.database import Database
 from src.models import WorldState, Character
-from api.chat_api import router as chat_router
-from api.generation_api import router as generation_router
 from api.game_api import router as game_router, init_game_engine
 from api.dm_api import router as dm_router, init_dm_agent
+from api.worlds_api import router as worlds_router
 from llm import create_backend, get_available_backends
 from llm.config_loader import LLMConfigLoader
-from api.world_api import router as world_router, init_world_services
 from database.world_db import WorldDatabase
 
 app = FastAPI(title="AI 小说生成器 API")
@@ -41,20 +39,14 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 注册聊天路由
-app.include_router(chat_router)
-
-# 注册自动生成路由
-app.include_router(generation_router)
-
 # 注册游戏路由
 app.include_router(game_router)
 
 # 注册 DM Agent 路由
 app.include_router(dm_router)
 
-# 注册世界管理路由
-app.include_router(world_router)
+# 注册世界包管理路由
+app.include_router(worlds_router)
 
 # 全局状态（延迟初始化）
 llm_backend = None  # 改名为 llm_backend，使用新的抽象层
@@ -114,10 +106,6 @@ async def startup():
     # 初始化游戏引擎（传入后端实例和数据库路径）
     init_game_engine(llm_backend, db_path=str(db_path))
     print(f"✅ 游戏引擎已初始化")
-
-    # 初始化世界服务
-    init_world_services(world_db, llm_backend)
-    print(f"✅ 世界管理服务已初始化")
 
     # 初始化 DM Agent
     init_dm_agent()

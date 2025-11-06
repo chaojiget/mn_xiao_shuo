@@ -7,7 +7,7 @@ backend: "langchain"  # 使用 LangChain 1.0 (已迁移,移除 LiteLLM)
 # LangChain 配置 (当前使用)
 # ========================================
 langchain:
-  model: "deepseek/deepseek-chat"  # OpenRouter 模型 ID
+  model: "deepseek/deepseek-v3.1-terminus"  # OpenRouter 模型 ID
   temperature: 0.7
   max_tokens: 4096
   streaming: true
@@ -15,7 +15,7 @@ langchain:
 # ========================================
 # 支持的模型 (通过 OpenRouter)
 # ========================================
-# - deepseek/deepseek-chat (默认,高性价比)
+# - deepseek/deepseek-v3.1-terminus (默认,高性价比)
 # - anthropic/claude-3.5-sonnet (高质量推理)
 # - anthropic/claude-3-haiku (快速任务)
 # - openai/gpt-4-turbo (备用)
@@ -26,12 +26,12 @@ langchain:
 # ========================================
 # OPENROUTER_API_KEY=your_key_here
 # OPENROUTER_BASE_URL=https://openrouter.ai/api/v1 (可选)
-# DEFAULT_MODEL=deepseek/deepseek-chat (可选)
+# DEFAULT_MODEL=deepseek/deepseek-v3.1-terminus (可选)
 
 # ========================================
 # 性能说明
 # ========================================
-# deepseek/deepseek-chat: ~$0.001/回合,中文优秀
+# deepseek/deepseek-v3.1-terminus: ~$0.001/回合,中文优秀
 # claude-3.5-sonnet: ~$0.015/回合,英文最佳
 # qwen-2.5: ~$0.002/回合,中文优化
 

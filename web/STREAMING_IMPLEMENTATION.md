@@ -66,7 +66,7 @@ OPENROUTER_API_KEY=your_openrouter_api_key_here
 model_list:
   - model_name: deepseek
     litellm_params:
-      model: openrouter/deepseek/deepseek-chat
+      model: openrouter/deepseek/deepseek-v3.1-terminus
       api_base: https://openrouter.ai/api/v1
       api_key: ${OPENROUTER_API_KEY}
 ```

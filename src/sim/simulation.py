@@ -13,6 +13,7 @@ import copy
 from .clock import WorldClock
 from .scheduler import Scheduler, Task
 from .event_store import EventStore, Event
+from ..models.world_state import WorldState
 
 
 @dataclass
@@ -87,6 +88,7 @@ class Simulation:
         self.clock = WorldClock()
         self.scheduler = Scheduler()
         self.event_store = EventStore()
+        self.world_state = WorldState(timestamp=0, turn=0)  # 世界状态
 
         # 运行状态
         self._running = False
@@ -384,21 +386,22 @@ class Simulation:
         """
         获取世界状态（深拷贝）
 
-        Note:
-            预留接口，Day 8-9 集成 WorldState 时实现
+        Returns:
+            世界状态的字典表示，用于快照
         """
-        # Phase 2: 集成 WorldState
-        return None
+        return self.world_state.to_dict()
 
     def _restore_world_state(self, state: Dict[str, Any]) -> None:
         """
         恢复世界状态
 
+        Args:
+            state: 世界状态的字典表示
+
         Note:
-            预留接口，Day 8-9 集成 WorldState 时实现
+            从快照恢复世界状态，重建所有角色、地点、势力等
         """
-        # Phase 2: 集成 WorldState
-        pass
+        self.world_state = WorldState.from_dict(state)
 
     def replay(self, to_tick: int) -> None:
         """

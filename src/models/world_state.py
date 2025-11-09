@@ -3,6 +3,7 @@
 from dataclasses import dataclass, field
 from typing import Dict, List, Optional, Any
 from datetime import datetime
+import copy
 
 
 @dataclass
@@ -161,17 +162,58 @@ class WorldState:
         self.updated_at = datetime.now()
 
     def to_dict(self) -> Dict[str, Any]:
-        """转换为字典（用于序列化）"""
+        """转换为字典（用于序列化）- 深拷贝"""
         return {
             "timestamp": self.timestamp,
             "turn": self.turn,
-            "locations": {k: v.__dict__ for k, v in self.locations.items()},
-            "characters": {k: v.__dict__ for k, v in self.characters.items()},
-            "factions": {k: v.__dict__ for k, v in self.factions.items()},
-            "resources": {k: v.__dict__ for k, v in self.resources.items()},
-            "events_log": self.events_log,
-            "flags": self.flags,
-            "active_effects": self.active_effects,
+            "locations": {k: copy.deepcopy(v.__dict__) for k, v in self.locations.items()},
+            "characters": {k: copy.deepcopy(v.__dict__) for k, v in self.characters.items()},
+            "factions": {k: copy.deepcopy(v.__dict__) for k, v in self.factions.items()},
+            "resources": {k: copy.deepcopy(v.__dict__) for k, v in self.resources.items()},
+            "events_log": copy.deepcopy(self.events_log),
+            "flags": copy.deepcopy(self.flags),
+            "active_effects": copy.deepcopy(self.active_effects),
             "created_at": self.created_at.isoformat(),
             "updated_at": self.updated_at.isoformat(),
         }
+
+    @staticmethod
+    def from_dict(data: Dict[str, Any]) -> 'WorldState':
+        """从字典创建 WorldState（用于反序列化）"""
+        # 重建 Location 对象
+        locations = {
+            k: Location(**v) for k, v in data.get("locations", {}).items()
+        }
+
+        # 重建 Character 对象
+        characters = {
+            k: Character(**v) for k, v in data.get("characters", {}).items()
+        }
+
+        # 重建 Faction 对象
+        factions = {
+            k: Faction(**v) for k, v in data.get("factions", {}).items()
+        }
+
+        # 重建 Resource 对象
+        resources = {
+            k: Resource(**v) for k, v in data.get("resources", {}).items()
+        }
+
+        # 解析时间戳
+        created_at = datetime.fromisoformat(data["created_at"]) if "created_at" in data else datetime.now()
+        updated_at = datetime.fromisoformat(data["updated_at"]) if "updated_at" in data else datetime.now()
+
+        return WorldState(
+            timestamp=data.get("timestamp", 0),
+            turn=data.get("turn", 0),
+            locations=locations,
+            characters=characters,
+            factions=factions,
+            resources=resources,
+            events_log=data.get("events_log", []),
+            flags=data.get("flags", {}),
+            active_effects=data.get("active_effects", []),
+            created_at=created_at,
+            updated_at=updated_at,
+        )

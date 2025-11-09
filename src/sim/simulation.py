@@ -5,12 +5,47 @@ Simulation - 模拟器
 负责驱动整个模拟循环，管理时间推进、事件调度和状态同步。
 """
 
-from typing import Dict, Any, Optional, Callable
+from typing import Dict, Any, Optional, Callable, List
 from pathlib import Path
+from dataclasses import dataclass, field
+import copy
 
 from .clock import WorldClock
 from .scheduler import Scheduler, Task
 from .event_store import EventStore, Event
+
+
+@dataclass
+class Snapshot:
+    """
+    模拟器快照：捕获特定时间点的完整状态
+
+    快照包含：
+    - 时间点（tick）
+    - 时钟状态（当前时间、步长、tick计数）
+    - 调度器状态（待执行任务队列）
+    - 事件历史（所有已发生事件）
+    - 世界状态（预留，Phase 2 集成 WorldState）
+
+    快照用于：
+    - 保存游戏进度
+    - 实现"悔棋"功能
+    - 回放到任意时间点
+    - 调试和测试
+    """
+    tick: int                                   # 快照时间点
+    clock_state: Dict[str, Any]                 # 时钟状态
+    scheduler_state: List[Dict[str, Any]]       # 调度器任务列表
+    events: List[Event]                         # 事件历史（深拷贝）
+    world_state: Optional[Dict[str, Any]] = None  # 世界状态（预留）
+    metadata: Dict[str, Any] = field(default_factory=dict)  # 元数据
+
+    def __repr__(self) -> str:
+        return (
+            f"Snapshot(tick={self.tick}, "
+            f"events={len(self.events)}, "
+            f"tasks={len(self.scheduler_state)})"
+        )
 
 
 class Simulation:
@@ -229,6 +264,133 @@ class Simulation:
             event: 要追加的事件
         """
         self.event_store.append(event)
+
+    def snapshot(self) -> Snapshot:
+        """
+        创建当前状态的快照
+
+        快照捕获：
+        - 时钟状态（时间、步长、tick计数）
+        - 调度器状态（待执行任务）
+        - 事件历史（深拷贝）
+        - 世界状态（预留）
+
+        Returns:
+            Snapshot 对象
+
+        Example:
+            sim = Simulation(seed=42, setting={})
+            sim.run(max_ticks=30)
+
+            # 创建快照
+            snapshot = sim.snapshot()
+
+            # 继续运行
+            sim.run(max_ticks=20)
+
+            # 稍后恢复
+            sim.restore(snapshot)
+        """
+        return Snapshot(
+            tick=self.clock.get_time(),
+            clock_state=self._get_clock_state(),
+            scheduler_state=self._get_scheduler_state(),
+            events=copy.deepcopy(self.event_store.events),
+            world_state=self._get_world_state(),
+            metadata={
+                "seed": self.seed,
+                "setting": self.setting
+            }
+        )
+
+    def restore(self, snapshot: Snapshot) -> None:
+        """
+        从快照恢复状态
+
+        恢复：
+        - 时钟状态
+        - 调度器状态（注意：需要重新创建任务函数）
+        - 事件历史
+        - 世界状态（预留）
+
+        Args:
+            snapshot: 要恢复的快照
+
+        Example:
+            sim.restore(snapshot)
+            assert sim.get_current_tick() == snapshot.tick
+
+        Note:
+            由于 Snapshot 中保存的调度器任务不包含函数对象，
+            恢复后需要重新初始化调度器。
+            这在 Day 7 实现 Replay 机制时会完善。
+        """
+        # 恢复时钟
+        self._restore_clock_state(snapshot.clock_state)
+
+        # 恢复事件历史
+        self.event_store.events = copy.deepcopy(snapshot.events)
+
+        # 恢复调度器（暂时清空后重新初始化）
+        # Phase 2: 实现更完善的任务序列化和恢复
+        self.scheduler.clear()
+        self._initialize_schedule()
+
+        # 恢复世界状态（预留）
+        if snapshot.world_state:
+            self._restore_world_state(snapshot.world_state)
+
+    def _get_clock_state(self) -> Dict[str, Any]:
+        """获取时钟状态（深拷贝）"""
+        return {
+            "t": self.clock.t,
+            "step": self.clock.step,
+            "tick_count": self.clock._tick_count
+        }
+
+    def _restore_clock_state(self, state: Dict[str, Any]) -> None:
+        """恢复时钟状态"""
+        self.clock.t = state["t"]
+        self.clock.step = state["step"]
+        self.clock._tick_count = state["tick_count"]
+
+    def _get_scheduler_state(self) -> List[Dict[str, Any]]:
+        """
+        获取调度器状态
+
+        Note:
+            由于 Task 包含函数对象（不可序列化），
+            这里只保存任务的元数据（when, label）。
+            实际应用中需要配合 Replay 机制重建任务。
+        """
+        tasks = self.scheduler.get_all_tasks()
+        return [
+            {
+                "when": task.when,
+                "label": task.label
+            }
+            for task in tasks
+        ]
+
+    def _get_world_state(self) -> Optional[Dict[str, Any]]:
+        """
+        获取世界状态（深拷贝）
+
+        Note:
+            预留接口，Day 8-9 集成 WorldState 时实现
+        """
+        # Phase 2: 集成 WorldState
+        return None
+
+    def _restore_world_state(self, state: Dict[str, Any]) -> None:
+        """
+        恢复世界状态
+
+        Note:
+            预留接口，Day 8-9 集成 WorldState 时实现
+        """
+        # Phase 2: 集成 WorldState
+        pass
 
     def __repr__(self) -> str:
         return (

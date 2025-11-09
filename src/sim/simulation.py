@@ -92,6 +92,9 @@ class Simulation:
         self._running = False
         self._max_ticks = 0
 
+        # 回放支持：保留完整事件历史（用于回放）
+        self._full_event_history: List[Event] = []
+
         # 初始化调度（示例）
         self._initialize_schedule()
 
@@ -126,6 +129,8 @@ class Simulation:
             seed=f"{self.seed}/{tick}"
         )
         self.event_store.append(event)
+        # 同时保存到完整历史（用于回放）
+        self._full_event_history.append(event)
 
     def run(self, max_ticks: int) -> None:
         """
@@ -215,6 +220,7 @@ class Simulation:
         self.clock.reset()
         self.scheduler.clear()
         self.event_store.clear()
+        self._full_event_history.clear()
         self._initialize_schedule()
 
     def get_stats(self) -> Dict[str, Any]:
@@ -264,6 +270,8 @@ class Simulation:
             event: 要追加的事件
         """
         self.event_store.append(event)
+        # 同时保存到完整历史
+        self._full_event_history.append(event)
 
     def snapshot(self) -> Snapshot:
         """
@@ -392,6 +400,87 @@ class Simulation:
         # Phase 2: 集成 WorldState
         pass
 
+    def replay(self, to_tick: int) -> None:
+        """
+        回放到指定时间点
+
+        通过基于完整事件历史恢复状态到目标时间点。
+        使用内部保存的完整事件历史，允许前后跳转。
+
+        Args:
+            to_tick: 目标时间点
+
+        Example:
+            sim = Simulation(seed=42, setting={})
+            sim.run(max_ticks=100)
+
+            # 回放到 tick=50
+            sim.replay(to_tick=50)
+            assert sim.get_current_tick() == 50
+
+            # 可以再回放到 tick=80
+            sim.replay(to_tick=80)
+            assert sim.get_current_tick() == 80
+
+        Note:
+            - 使用完整事件历史，支持前后跳转
+            - 回放保留 <= to_tick 的事件
+            - 调度器重新初始化
+            - 时钟调整到目标时间点
+        """
+        if to_tick < 0:
+            raise ValueError(f"Invalid replay tick: {to_tick} (must be >= 0)")
+
+        # 使用完整事件历史检查
+        full_max_tick = max((e.tick for e in self._full_event_history), default=0)
+
+        if to_tick > full_max_tick and to_tick > 0:
+            # 如果目标时间点超过完整历史，需要先运行到该时间点
+            raise ValueError(
+                f"Cannot replay to future tick {to_tick} "
+                f"(max historical tick: {full_max_tick})"
+            )
+
+        # 从完整历史中过滤出目标时间点之前的事件
+        target_events = [e for e in self._full_event_history if e.tick <= to_tick]
+
+        # 重置状态
+        self.clock.reset(0)
+        self.scheduler.clear()
+        self._initialize_schedule()
+        self.event_store.clear()
+
+        # 恢复事件（注意：不添加到完整历史，因为已经存在）
+        for event in target_events:
+            self.event_store.append(event)
+
+        # 将时钟直接调整到目标时间点
+        # 通过逐步 tick 推进，以便正确更新 tick_count
+        while self.clock.get_time() < to_tick:
+            self.clock.tick()
+            # 清除已执行的任务（但不执行它们）
+            self.scheduler.pop_due(self.clock.get_time())
+
+    def get_replay_handle(self) -> 'ReplayHandle':
+        """
+        获取回放句柄
+
+        返回一个 ReplayHandle 对象，提供回放、快照、恢复的统一接口。
+
+        Returns:
+            ReplayHandle 实例
+
+        Example:
+            sim = Simulation(seed=42, setting={})
+            handle = sim.get_replay_handle()
+
+            # 使用句柄操作
+            handle.replay(to_tick=50)
+            snapshot = handle.snapshot()
+            handle.restore(snapshot)
+        """
+        return ReplayHandle(self)
+
     def __repr__(self) -> str:
         return (
             f"Simulation(seed={self.seed}, "
@@ -399,3 +488,93 @@ class Simulation:
             f"events={self.event_store.count()}, "
             f"tasks={self.scheduler.size()})"
         )
+
+
+class ReplayHandle:
+    """
+    回放句柄：提供回放、快照、恢复的统一接口
+
+    ReplayHandle 是 Simulation 的轻量级包装器，
+    提供更清晰的 API 用于时间旅行操作。
+
+    特性：
+    - 回放到任意时间点
+    - 创建和恢复快照
+    - 统一的接口设计
+
+    Example:
+        sim = Simulation(seed=42, setting={})
+        sim.run(max_ticks=100)
+
+        # 获取回放句柄
+        handle = sim.get_replay_handle()
+
+        # 回放到 tick=50
+        handle.replay(to_tick=50)
+
+        # 创建快照
+        snapshot = handle.snapshot()
+
+        # 继续运行
+        sim.run(max_ticks=30)
+
+        # 恢复快照
+        handle.restore(snapshot)
+    """
+
+    def __init__(self, simulation: 'Simulation'):
+        """
+        初始化回放句柄
+
+        Args:
+            simulation: Simulation 实例
+        """
+        self.simulation = simulation
+
+    def replay(self, to_tick: int) -> None:
+        """
+        回放到指定时间点
+
+        Args:
+            to_tick: 目标时间点
+        """
+        self.simulation.replay(to_tick)
+
+    def snapshot(self) -> Snapshot:
+        """
+        创建当前状态的快照
+
+        Returns:
+            Snapshot 对象
+        """
+        return self.simulation.snapshot()
+
+    def restore(self, snapshot: Snapshot) -> None:
+        """
+        从快照恢复状态
+
+        Args:
+            snapshot: 要恢复的快照
+        """
+        self.simulation.restore(snapshot)
+
+    def get_current_tick(self) -> int:
+        """
+        获取当前时间
+
+        Returns:
+            当前 tick
+        """
+        return self.simulation.get_current_tick()
+
+    def get_events(self) -> list:
+        """
+        获取所有事件
+
+        Returns:
+            事件列表
+        """
+        return self.simulation.get_events()
+
+    def __repr__(self) -> str:
+        return f"ReplayHandle(simulation={self.simulation})"

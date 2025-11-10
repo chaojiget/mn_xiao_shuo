@@ -231,11 +231,51 @@ model = ChatOpenAI(
 - [x] 分析 Checkpoint 模式限制
 - [x] 提供两种解决方案
 - [x] 编写文档
-- [ ] 用户选择方案并测试
+- [x] 用户选择方案 B (增强 Checkpoint)
+- [x] 实施方案 B (dm_agent_langchain.py:340-386)
+- [ ] 测试工具调用和思考过程显示
 
 ---
 
-**更新时间**: 2025-11-10 21:55
+## 📝 已实施: 方案 B - 增强 Checkpoint 模式
+
+**实施文件**: `web/backend/agents/dm_agent_langchain.py:340-386`
+
+**核心改动**:
+```python
+# 🔥 增强版：手动从消息中提取工具调用和思考过程
+async for event in agent.astream({"messages": message_history}, config=config):
+    if "agent" in event:
+        agent_event = event["agent"]
+        if "messages" in agent_event:
+            for msg in agent_event["messages"]:
+                # 检测工具调用 (AIMessage.tool_calls)
+                if hasattr(msg, "tool_calls") and msg.tool_calls:
+                    for tool_call in msg.tool_calls:
+                        yield {"type": "tool_call", "tool": tool_name, "input": tool_args}
+
+                # 检测工具返回 (ToolMessage)
+                if hasattr(msg, "type") and msg.type == "tool":
+                    yield {"type": "tool_result", "tool": tool_name, "output": msg.content}
+
+                # 检测思考过程标记
+                if hasattr(msg, "content") and msg.content:
+                    if "<thinking>" in content:
+                        yield {"type": "thinking_start"}
+                    elif "</thinking>" in content:
+                        yield {"type": "thinking_end"}
+```
+
+**支持的思考标记**:
+- `<thinking>...</thinking>` (Kimi K2)
+- `<think>...</think>` (DeepSeek)
+- `思考：...`
+- `推理：...`
+- `分析：...`
+
+---
+
+**更新时间**: 2025-11-10 22:15
 **作者**: Claude Code
-**版本**: 1.0
-**状态**: ✅ 完成（待用户选择方案）
+**版本**: 2.0
+**状态**: ✅ 已实施方案B（待测试）

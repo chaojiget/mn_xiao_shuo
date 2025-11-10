@@ -4,14 +4,22 @@
 """
 
 import json
-from typing import List, Dict, Any, Optional
+import os
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 from models.world_models import (
-    WorldScaffold, Region, Location, POI, Faction,
-    WorldGenerationRequest, RegionGenerationRequest,
-    LocationGenerationRequest, POIGenerationRequest,
-    StyleBible, SyntaxPreferences
+    POI,
+    Faction,
+    Location,
+    LocationGenerationRequest,
+    POIGenerationRequest,
+    Region,
+    RegionGenerationRequest,
+    StyleBible,
+    SyntaxPreferences,
+    WorldGenerationRequest,
+    WorldScaffold,
 )
 
 
@@ -24,6 +32,8 @@ class WorldGenerator:
             llm_client: LiteLLM客户端实例
         """
         self.llm = llm_client
+        # 从环境变量读取默认模型
+        self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
 
     # ============ 世界生成 ============
 
@@ -45,17 +55,12 @@ class WorldGenerator:
 
         # 2. 生成区域
         regions = await self._generate_regions(
-            world.id,
-            count=request.num_regions,
-            theme=request.theme,
-            novel_type=request.novel_type
+            world.id, count=request.num_regions, theme=request.theme, novel_type=request.novel_type
         )
 
         # 3. 生成派系
         factions = await self._generate_factions(
-            world.id,
-            regions=regions,
-            novel_type=request.novel_type
+            world.id, regions=regions, novel_type=request.novel_type
         )
 
         # 4. 生成风格词库
@@ -65,7 +70,7 @@ class WorldGenerator:
             "world": world,
             "regions": regions,
             "factions": factions,
-            "style_vocabulary": style_vocab
+            "style_vocabulary": style_vocab,
         }
 
     async def _generate_world_framework(self, request: WorldGenerationRequest) -> WorldScaffold:
@@ -116,10 +121,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.8,
-            max_tokens=2000
+            prompt=prompt, model=self.default_model, temperature=0.8, max_tokens=2000
         )
 
         # 解析JSON
@@ -131,7 +133,7 @@ class WorldGenerator:
             sensory=data["style_bible"]["sensory"],
             syntax=SyntaxPreferences(**data["style_bible"]["syntax"]),
             imagery=data["style_bible"].get("imagery"),
-            metaphor_patterns=data["style_bible"].get("metaphor_patterns")
+            metaphor_patterns=data["style_bible"].get("metaphor_patterns"),
         )
 
         # 构建WorldScaffold
@@ -148,17 +150,13 @@ class WorldGenerator:
             forbidden_rules=data.get("forbidden_rules"),
             style_bible=style_bible,
             status="draft",
-            version=1
+            version=1,
         )
 
         return world
 
     async def _generate_regions(
-        self,
-        world_id: str,
-        count: int,
-        theme: str,
-        novel_type: str
+        self, world_id: str, count: int, theme: str, novel_type: str
     ) -> List[Region]:
         """生成区域"""
 
@@ -191,10 +189,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.9,
-            max_tokens=3000
+            prompt=prompt, model=self.default_model, temperature=0.9, max_tokens=3000
         )
 
         # 解析JSON
@@ -217,17 +212,14 @@ class WorldGenerator:
                 special_rules=item.get("special_rules"),
                 atmosphere=item.get("atmosphere"),
                 status="draft",
-                canon_locked=False
+                canon_locked=False,
             )
             regions.append(region)
 
         return regions
 
     async def _generate_factions(
-        self,
-        world_id: str,
-        regions: List[Region],
-        novel_type: str
+        self, world_id: str, regions: List[Region], novel_type: str
     ) -> List[Faction]:
         """生成派系"""
 
@@ -266,10 +258,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.85,
-            max_tokens=2500
+            prompt=prompt, model=self.default_model, temperature=0.85, max_tokens=2500
         )
 
         # 解析JSON
@@ -291,7 +280,7 @@ class WorldGenerator:
                 key_members=[],  # 稍后生成NPC
                 voice_style=item.get("voice_style"),
                 behavior_patterns=item.get("behavior_patterns"),
-                status="active"
+                status="active",
             )
             factions.append(faction)
 
@@ -303,10 +292,7 @@ class WorldGenerator:
     async def _generate_faction_relationships(self, factions: List[Faction]):
         """生成派系关系"""
 
-        faction_summaries = [
-            f"{f.name}: {f.purpose}"
-            for f in factions
-        ]
+        faction_summaries = [f"{f.name}: {f.purpose}" for f in factions]
 
         prompt = f"""以下是各个派系的信息：
 
@@ -331,10 +317,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.7,
-            max_tokens=1000
+            prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=1000
         )
 
         relationships = json.loads(response.strip())
@@ -390,10 +373,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.8,
-            max_tokens=2000
+            prompt=prompt, model=self.default_model, temperature=0.8, max_tokens=2000
         )
 
         vocab = json.loads(response.strip())
@@ -402,14 +382,15 @@ class WorldGenerator:
     # ============ 地点生成 ============
 
     async def generate_locations(
-        self,
-        request: LocationGenerationRequest,
-        region: Region,
-        world: WorldScaffold
+        self, request: LocationGenerationRequest, region: Region, world: WorldScaffold
     ) -> List[Location]:
         """生成地点"""
 
-        types_str = ', '.join(request.types) if request.types else "landmark, settlement, dungeon, wilderness"
+        types_str = (
+            ", ".join(request.types)
+            if request.types
+            else "landmark, settlement, dungeon, wilderness"
+        )
 
         prompt = f"""你是世界设计专家。请为以下区域生成{request.count}个地点。
 
@@ -443,10 +424,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.85,
-            max_tokens=2500
+            prompt=prompt, model=self.default_model, temperature=0.85, max_tokens=2500
         )
 
         data = json.loads(response.strip())
@@ -468,7 +446,7 @@ class WorldGenerator:
                 status="draft",
                 canon_locked=False,
                 detail_level=0,  # 初始为轮廓
-                visit_count=0
+                visit_count=0,
             )
             locations.append(location)
 
@@ -476,14 +454,12 @@ class WorldGenerator:
 
     # ============ POI生成 ============
 
-    async def generate_pois(
-        self,
-        request: POIGenerationRequest,
-        location: Location
-    ) -> List[POI]:
+    async def generate_pois(self, request: POIGenerationRequest, location: Location) -> List[POI]:
         """生成POI"""
 
-        types_str = ', '.join(request.types) if request.types else "object, npc, event, hazard, secret"
+        types_str = (
+            ", ".join(request.types) if request.types else "object, npc, event, hazard, secret"
+        )
 
         prompt = f"""你是世界设计专家。请为以下地点生成{request.count}个兴趣点（POI）。
 
@@ -520,10 +496,7 @@ class WorldGenerator:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.85,
-            max_tokens=2000
+            prompt=prompt, model=self.default_model, temperature=0.85, max_tokens=2000
         )
 
         data = json.loads(response.strip())
@@ -542,7 +515,7 @@ class WorldGenerator:
                 risks=item.get("risks"),
                 expected_outcomes=item.get("expected_outcomes"),
                 state=item.get("state", "active"),
-                interacted=False
+                interacted=False,
             )
             pois.append(poi)
 

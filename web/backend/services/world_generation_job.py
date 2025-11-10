@@ -3,31 +3,35 @@
 负责管理世界生成的完整流水线，支持断点恢复和进度跟踪
 """
 
-import json
-import gzip
-import random
 import asyncio
+import gzip
+import json
+import random
 import sqlite3
-from typing import Optional, Dict, Any, Callable
-from pathlib import Path
+import uuid
 from datetime import datetime
+from pathlib import Path
+from typing import Any, Callable, Dict, Optional
 
+from llm.base import LLMMessage
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 from models.world_pack import (
-    WorldPack,
-    WorldMeta,
-    Quest,
-    QuestObjective,
     NPC,
-    Location,
     POI,
     Coord,
-    LootTable,
-    LootEntry,
-    EncounterTable,
     EncounterEntry,
+    EncounterTable,
+    Location,
+    LootEntry,
+    LootTable,
+    Quest,
+    QuestObjective,
     WorldGenerationRequest,
+    WorldMeta,
+    WorldPack,
 )
-from llm.base import LLMMessage
 
 
 class WorldGenerationJob:
@@ -213,7 +217,7 @@ class WorldGenerationJob:
         # 保存 lore
         self.lore = data.get("lore_entries", {})
 
-        print(f"[WorldGen] ✅ 世界框架生成完成: {data['name']}")
+        logger.info(f"[WorldGen] ✅ 世界框架生成完成: {data['name']}")
 
     async def _generate_locations(self):
         """生成地点"""
@@ -285,7 +289,7 @@ class WorldGenerationJob:
 
             self.locations.append(location)
 
-        print(f"[WorldGen] ✅ 生成了 {len(self.locations)} 个地点")
+        logger.info(f"[WorldGen] ✅ 生成了 {len(self.locations)} 个地点")
 
     async def _generate_npcs(self):
         """生成 NPC"""
@@ -356,7 +360,7 @@ class WorldGenerationJob:
                         loc.npcs.append(npc.id)
                         break
 
-        print(f"[WorldGen] ✅ 生成了 {len(self.npcs)} 个 NPC")
+        logger.info(f"[WorldGen] ✅ 生成了 {len(self.npcs)} 个 NPC")
 
     async def _generate_quests(self):
         """生成任务"""
@@ -421,7 +425,7 @@ class WorldGenerationJob:
 
             self.quests.append(quest)
 
-        print(f"[WorldGen] ✅ 生成了 {len(self.quests)} 个任务")
+        logger.info(f"[WorldGen] ✅ 生成了 {len(self.quests)} 个任务")
 
     async def _generate_loot_tables(self):
         """生成掉落表"""
@@ -446,7 +450,7 @@ class WorldGenerationJob:
 
             self.loot_tables.append(table)
 
-        print(f"[WorldGen] ✅ 生成了 {len(self.loot_tables)} 个掉落表")
+        logger.info(f"[WorldGen] ✅ 生成了 {len(self.loot_tables)} 个掉落表")
 
     async def _generate_encounter_tables(self):
         """生成遭遇表"""
@@ -472,7 +476,7 @@ class WorldGenerationJob:
 
             self.encounter_tables.append(table)
 
-        print(f"[WorldGen] ✅ 生成了 {len(self.encounter_tables)} 个遭遇表")
+        logger.info(f"[WorldGen] ✅ 生成了 {len(self.encounter_tables)} 个遭遇表")
 
     async def _build_index(self, world_pack: WorldPack):
         """构建向量索引"""
@@ -481,7 +485,7 @@ class WorldGenerationJob:
         indexer = create_world_indexer(self.db_path, self.llm)
         stats = await indexer.build_index(world_pack)
 
-        print(f"[WorldGen] ✅ 索引构建完成: {stats['total_embeddings']} 条记录")
+        logger.info(f"[WorldGen] ✅ 索引构建完成: {stats['total_embeddings']} 条记录")
 
     async def _save_world_pack(self, world_pack: WorldPack):
         """保存 WorldPack 到数据库"""
@@ -508,7 +512,7 @@ class WorldGenerationJob:
             ))
 
             conn.commit()
-            print(f"[WorldGen] ✅ 世界已保存到数据库: {self.world_id}")
+            logger.info(f"[WorldGen] ✅ 世界已保存到数据库: {self.world_id}")
 
         finally:
             conn.close()
@@ -541,7 +545,7 @@ class WorldGenerationJob:
         if self.progress_callback:
             await self.progress_callback(phase, progress, message)
 
-        print(f"[WorldGen] {phase} ({progress*100:.0f}%): {message}")
+        logger.info(f"[WorldGen] {phase} ({progress*100:.0f}%): {message}")
 
 
 async def create_world_generation_job(
@@ -562,8 +566,6 @@ async def create_world_generation_job(
     Returns:
         WorldGenerationJob: 任务实例
     """
-    import uuid
-
     job_id = f"job-{uuid.uuid4().hex[:16]}"
     world_id = f"world-{uuid.uuid4().hex[:16]}"
 

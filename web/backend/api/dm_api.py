@@ -3,12 +3,17 @@ DM Agent API - 游戏主持人 Agent REST API
 提供 DM Agent 的 HTTP 和 WebSocket 接口
 """
 
+import asyncio
+import json
+import traceback
+from typing import Any, Dict, Optional
+
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel
-from typing import Optional, Dict, Any
-import json
-import asyncio
 
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/dm", tags=["dm"])
 
 # 全局 DM Agent 实例
@@ -18,9 +23,24 @@ dm_agent = None
 def init_dm_agent():
     """初始化 DM Agent"""
     global dm_agent
+    import os
+
     from agents.dm_agent_langchain import DMAgentLangChain
-    dm_agent = DMAgentLangChain(model_name="deepseek/deepseek-v3.1-terminus")
-    print("✅ DM Agent 已初始化 (LangChain)")
+
+    # 🔥 从环境变量读取模型名称
+    # 优先使用 .env 中的配置，如果未设置则警告并使用 fallback
+    model_name = os.getenv("DEFAULT_MODEL")
+    if not model_name:
+        logger.warning("⚠️  警告: DEFAULT_MODEL 环境变量未设置，使用 fallback: deepseek/deepseek-v3.1-terminus")
+        model_name = "deepseek/deepseek-v3.1-terminus"
+
+    # 🔥 启用 Checkpoint 模式，让 Agent 自动记忆对话历史
+    dm_agent = DMAgentLangChain(
+        model_name=model_name,
+        use_checkpoint=True,
+        checkpoint_db="data/checkpoints/dm.db"
+    )
+    logger.info(f"✅ DM Agent 已初始化 (模型: {model_name}, LangChain + Checkpoint)")
 
 
 # ==================== 请求/响应模型 ====================
@@ -152,19 +172,27 @@ async def reset_dm_session(session_id: str):
 
 @router.websocket("/ws/{session_id}")
 async def dm_websocket(websocket: WebSocket, session_id: str):
-    """WebSocket 实时 DM 交互
+    """WebSocket 实时 DM 交互（增强版）
 
     客户端发送:
     {
-        "type": "action",
+        "type": "action",  // 玩家行动
         "player_action": str,
         "game_state": {...}
+    }
+    或
+    {
+        "type": "cancel"  // 取消当前生成
+    }
+    或
+    {
+        "type": "ping"  // 心跳检测
     }
 
     服务端返回（流式）:
     {
-        "type": "narration_chunk" | "tool_call" | "complete",
-        "data": {...}
+        "type": "narration" | "tool_call" | "tool_result" | "complete" | "error",
+        "content": str | {...}
     }
     """
     if not dm_agent:
@@ -172,108 +200,138 @@ async def dm_websocket(websocket: WebSocket, session_id: str):
         return
 
     await websocket.accept()
-    print(f"[DM WebSocket] 会话 {session_id} 已连接")
+    logger.info(f"[DM WebSocket] 会话 {session_id} 已连接")
+
+    # 取消事件（用于中断流式生成）
+    cancel_event = asyncio.Event()
+    current_task = None
+
+    # 心跳任务
+    async def heartbeat():
+        """定期发送心跳，检测连接状态"""
+        try:
+            while True:
+                await asyncio.sleep(30)  # 每30秒发送一次心跳
+                try:
+                    await websocket.send_json({"type": "heartbeat", "timestamp": asyncio.get_event_loop().time()})
+                except Exception as e:
+                    logger.warning(f"[DM WebSocket] 心跳发送失败: {e}")
+                    break
+        except asyncio.CancelledError:
+            pass
+
+    heartbeat_task = asyncio.create_task(heartbeat())
 
     try:
         while True:
             # 接收客户端消息
-            raw_message = await websocket.receive_text()
-            message = json.loads(raw_message)
+            try:
+                raw_message = await asyncio.wait_for(websocket.receive_text(), timeout=60.0)
+            except asyncio.TimeoutError:
+                # 60秒无消息，发送ping检测连接
+                try:
+                    await websocket.send_json({"type": "ping"})
+                    continue
+                except:
+                    logger.warning(f"[DM WebSocket] 连接超时")
+                    break
 
-            if message.get("type") == "action":
+            message = json.loads(raw_message)
+            msg_type = message.get("type")
+
+            if msg_type == "action":
                 player_action = message.get("player_action")
                 game_state = message.get("game_state", {})
 
-                print(f"[DM WebSocket] 收到行动: {player_action}")
+                logger.info(f"[DM WebSocket] 收到行动: {player_action[:50]}...")
+
+                # 重置取消事件
+                cancel_event.clear()
 
                 # 流式处理
-                narration_parts = []
-                tool_calls = []
+                try:
+                    async for event in dm_agent.process_turn(
+                        session_id=session_id,
+                        player_action=player_action,
+                        game_state=game_state
+                    ):
+                        # 检查是否取消
+                        if cancel_event.is_set():
+                            logger.info(f"[DM WebSocket] 生成已取消")
+                            await websocket.send_json({
+                                "type": "cancelled",
+                                "message": "生成已被用户取消"
+                            })
+                            break
 
-                async for event in dm_agent.process_turn(
-                    session_id=session_id,
-                    player_action=player_action,
-                    game_state=game_state
-                ):
-                    # 解析事件类型
-                    if hasattr(event, 'type'):
-                        if event.type == 'text':
-                            # 文本块
-                            chunk = {
-                                "type": "narration_chunk",
-                                "data": {"text": event.text}
-                            }
-                            narration_parts.append(event.text)
-                            await websocket.send_json(chunk)
+                        # 发送事件到客户端
+                        await websocket.send_json(event)
 
-                        elif event.type == 'tool_use':
-                            # 工具调用
-                            tool_call = {
-                                "tool": event.name,
-                                "input": event.input
-                            }
-                            tool_calls.append(tool_call)
+                except asyncio.CancelledError:
+                    logger.info(f"[DM WebSocket] 生成被取消")
+                    await websocket.send_json({
+                        "type": "cancelled",
+                        "message": "生成已被取消"
+                    })
 
-                            chunk = {
-                                "type": "tool_call",
-                                "data": tool_call
-                            }
-                            await websocket.send_json(chunk)
+                except Exception as e:
+                    logger.error(f"[DM WebSocket] 处理回合错误: {e}")
+                    traceback.print_exc()
+                    await websocket.send_json({
+                        "type": "error",
+                        "error": str(e)
+                    })
 
-                        elif event.type == 'tool_result':
-                            # 工具结果（可选：发送给客户端）
-                            chunk = {
-                                "type": "tool_result",
-                                "data": {
-                                    "tool": getattr(event, 'tool_name', ''),
-                                    "result": getattr(event, 'content', '')
-                                }
-                            }
-                            await websocket.send_json(chunk)
+            elif msg_type == "cancel":
+                # 取消当前生成
+                logger.info(f"[DM WebSocket] 收到取消请求")
+                cancel_event.set()
+                if current_task and not current_task.done():
+                    current_task.cancel()
+                await websocket.send_json({
+                    "type": "cancelled",
+                    "message": "生成已取消"
+                })
 
-                # 更新回合数
-                game_state['turn_number'] = game_state.get('turn_number', 0) + 1
-
-                # 发送完成消息
-                complete_message = {
-                    "type": "complete",
-                    "data": {
-                        "narration": "\n\n".join(narration_parts),
-                        "tool_calls": tool_calls,
-                        "turn": game_state['turn_number'],
-                        "updated_state": game_state
-                    }
-                }
-                await websocket.send_json(complete_message)
-
-            elif message.get("type") == "ping":
+            elif msg_type == "ping":
                 # 心跳检测
-                await websocket.send_json({"type": "pong"})
+                await websocket.send_json({"type": "pong", "timestamp": asyncio.get_event_loop().time()})
 
             else:
                 # 未知消息类型
+                logger.warning(f"[DM WebSocket] 未知消息类型: {msg_type}")
                 await websocket.send_json({
                     "type": "error",
-                    "data": {"message": f"未知消息类型: {message.get('type')}"}
+                    "error": f"未知消息类型: {msg_type}"
                 })
 
     except WebSocketDisconnect:
-        print(f"[DM WebSocket] 会话 {session_id} 断开连接")
+        logger.info(f"[DM WebSocket] 会话 {session_id} 断开连接")
 
     except Exception as e:
-        print(f"[DM WebSocket] 错误: {e}")
-        import traceback
+        logger.error(f"[DM WebSocket] 错误: {e}")
         traceback.print_exc()
 
         try:
             await websocket.send_json({
                 "type": "error",
-                "data": {"message": str(e)}
+                "error": str(e)
             })
         except:
             pass
 
-        await websocket.close(code=1011, reason=str(e))
+    finally:
+        # 清理
+        heartbeat_task.cancel()
+        if current_task and not current_task.done():
+            current_task.cancel()
+
+        try:
+            await websocket.close()
+        except:
+            pass
+
+        logger.info(f"[DM WebSocket] 会话 {session_id} 已清理")
 
 
 # ==================== 工具信息端点 ====================

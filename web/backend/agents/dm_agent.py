@@ -4,10 +4,12 @@ DM Agent - 游戏主持人 Agent
 基于 docs/TECHNICAL_IMPLEMENTATION_PLAN.md 第4.3节设计
 """
 
-from claude_agent_sdk import query, ClaudeAgentOptions
-from typing import Dict, Any, AsyncIterator
-from .mcp_servers import get_game_server
+from typing import Any, AsyncIterator, Dict
+
+from claude_agent_sdk import ClaudeAgentOptions, query
+
 from .game_tools_mcp import set_session
+from .mcp_servers import get_game_server
 
 
 class DMAgent:
@@ -27,15 +29,12 @@ class DMAgent:
                 "mcp__game__roll_check",
                 "mcp__game__set_location",
                 "mcp__game__create_quest",
-                "mcp__game__save_game"
-            ]
+                "mcp__game__save_game",
+            ],
         )
 
     async def process_turn(
-        self,
-        session_id: str,
-        player_action: str,
-        game_state: Dict[str, Any]
+        self, session_id: str, player_action: str, game_state: Dict[str, Any]
     ) -> AsyncIterator[Dict[str, Any]]:
         """处理游戏回合
 
@@ -87,19 +86,15 @@ class DMAgent:
         options = ClaudeAgentOptions(
             system_prompt=system_prompt,
             mcp_servers={"game": self.game_server},
-            allowed_tools=self.base_options.allowed_tools
+            allowed_tools=self.base_options.allowed_tools,
         )
 
         # 流式返回
         async for message in query(prompt=prompt, options=options):
             yield message
 
-
     async def process_turn_sync(
-        self,
-        session_id: str,
-        player_action: str,
-        game_state: Dict[str, Any]
+        self, session_id: str, player_action: str, game_state: Dict[str, Any]
     ) -> Dict[str, Any]:
         """处理游戏回合（非流式）
 
@@ -144,7 +139,7 @@ class DMAgent:
         options = ClaudeAgentOptions(
             system_prompt=system_prompt,
             mcp_servers={"game": self.game_server},
-            allowed_tools=self.base_options.allowed_tools
+            allowed_tools=self.base_options.allowed_tools,
         )
 
         # 收集所有消息
@@ -153,24 +148,21 @@ class DMAgent:
 
         async for message in query(prompt=prompt, options=options):
             # 解析消息类型
-            if hasattr(message, 'type'):
-                if message.type == 'text':
+            if hasattr(message, "type"):
+                if message.type == "text":
                     narration_parts.append(message.text)
-                elif message.type == 'tool_use':
-                    tool_calls.append({
-                        "tool": message.name,
-                        "input": message.input
-                    })
-                elif message.type == 'tool_result':
+                elif message.type == "tool_use":
+                    tool_calls.append({"tool": message.name, "input": message.input})
+                elif message.type == "tool_result":
                     # 工具结果
                     pass
 
         # 更新回合数
-        game_state['turn_number'] = game_state.get('turn_number', 0) + 1
+        game_state["turn_number"] = game_state.get("turn_number", 0) + 1
 
         return {
             "narration": "\n\n".join(narration_parts),
             "tool_calls": tool_calls,
             "updated_state": game_state,
-            "turn": game_state['turn_number']
+            "turn": game_state["turn_number"],
         }

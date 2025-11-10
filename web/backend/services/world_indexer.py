@@ -4,12 +4,16 @@
 """
 
 import json
-import sqlite3
 import pickle
-from typing import List, Dict, Tuple, Optional
+import sqlite3
+from typing import Dict, List, Optional, Tuple
+
 import numpy as np
 
-from models.world_pack import WorldPack, NPC
+from models.world_pack import NPC, WorldPack
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WorldIndexer:
@@ -55,7 +59,7 @@ class WorldIndexer:
 
         stats["total_embeddings"] = npc_count + lore_count
 
-        print(f"[WorldIndexer] ✅ 索引构建完成: {stats['total_embeddings']} 条记录")
+        logger.info(f"[WorldIndexer] ✅ 索引构建完成: {stats['total_embeddings']} 条记录")
         return stats
 
     async def _index_npcs(self, world_pack: WorldPack) -> int:
@@ -80,7 +84,7 @@ class WorldIndexer:
 
             count += 1
 
-        print(f"[WorldIndexer] 索引了 {count} 个 NPC")
+        logger.info(f"[WorldIndexer] 索引了 {count} 个 NPC")
         return count
 
     async def _index_lore(self, world_pack: WorldPack) -> int:
@@ -102,7 +106,7 @@ class WorldIndexer:
 
             count += 1
 
-        print(f"[WorldIndexer] 索引了 {count} 个 Lore 条目")
+        logger.info(f"[WorldIndexer] 索引了 {count} 个 Lore 条目")
         return count
 
     def _build_npc_text(self, npc: NPC) -> str:
@@ -191,7 +195,7 @@ class WorldIndexer:
         try:
             cursor.execute("DELETE FROM world_kb WHERE world_id = ?", (world_id,))
             conn.commit()
-            print(f"[WorldIndexer] 清理了世界 {world_id} 的旧索引")
+            logger.info(f"[WorldIndexer] 清理了世界 {world_id} 的旧索引")
 
         finally:
             conn.close()

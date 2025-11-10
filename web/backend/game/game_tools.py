@@ -4,11 +4,12 @@
 """
 
 import random
-from typing import Dict, List, Optional, Any, Literal
+from typing import Any, Dict, List, Literal, Optional
+
 from pydantic import BaseModel, Field
 
-
 # ==================== 数据模型 ====================
+
 
 class InventoryItem(BaseModel):
     id: str
@@ -91,6 +92,7 @@ class GameLogEntry(BaseModel):
 
 class GameState(BaseModel):
     version: str = "1.0.0"
+    session_id: Optional[str] = None  # 🔥 会话ID，用于Checkpoint记忆
     turn_number: int = 0  # 当前回合数
     player: PlayerState
     world: WorldState
@@ -102,10 +104,17 @@ class GameState(BaseModel):
 
 # ==================== 检定系统 ====================
 
+
 class RollCheckParams(BaseModel):
     type: Literal[
-        "survival", "stealth", "persuasion", "perception",
-        "strength", "intelligence", "luck", "custom"
+        "survival",
+        "stealth",
+        "persuasion",
+        "perception",
+        "strength",
+        "intelligence",
+        "luck",
+        "custom",
     ]
     dc: int  # Difficulty Class
     modifier: int = 0
@@ -140,16 +149,12 @@ def roll_check(params: RollCheckParams) -> RollCheckResult:
     critical = roll == 20 or roll == 1
 
     return RollCheckResult(
-        success=success,
-        roll=roll,
-        total=total,
-        dc=params.dc,
-        margin=margin,
-        critical=critical
+        success=success, roll=roll, total=total, dc=params.dc, margin=margin, critical=critical
     )
 
 
 # ==================== 游戏工具类 ====================
+
 
 class GameTools:
     """游戏工具集 - 提供给Agent的函数接口"""
@@ -215,7 +220,7 @@ class GameTools:
             quantity=quantity,
             description=kwargs.get("description", ""),
             type=kwargs.get("type", "misc"),
-            properties=kwargs.get("properties", {})
+            properties=kwargs.get("properties", {}),
         )
         self.state.player.inventory.append(new_item)
         return True
@@ -239,10 +244,9 @@ class GameTools:
 
     def update_stamina(self, delta: int) -> int:
         """更新体力值"""
-        self.state.player.stamina = max(0, min(
-            self.state.player.maxStamina,
-            self.state.player.stamina + delta
-        ))
+        self.state.player.stamina = max(
+            0, min(self.state.player.maxStamina, self.state.player.stamina + delta)
+        )
         return self.state.player.stamina
 
     def set_location(self, location_id: str) -> bool:
@@ -322,7 +326,7 @@ class GameTools:
         dc: int,
         modifier: int = 0,
         advantage: bool = False,
-        disadvantage: bool = False
+        disadvantage: bool = False,
     ) -> Dict[str, Any]:
         """执行检定"""
         # 创建params对象
@@ -331,7 +335,7 @@ class GameTools:
             dc=dc,
             modifier=modifier,
             advantage=advantage,
-            disadvantage=disadvantage
+            disadvantage=disadvantage,
         )
 
         # 根据特质添加修正值
@@ -359,7 +363,7 @@ class GameTools:
         quest_id: str,
         title: str,
         description: str,
-        objectives: Optional[List[Dict[str, Any]]] = None
+        objectives: Optional[List[Dict[str, Any]]] = None,
     ) -> bool:
         """创建新任务"""
         # 检查任务是否已存在
@@ -370,12 +374,14 @@ class GameTools:
         quest_objectives = []
         if objectives:
             for obj in objectives:
-                quest_objectives.append(QuestObjective(
-                    id=obj.get("id", f"{quest_id}_obj_{len(quest_objectives)}"),
-                    description=obj.get("description", ""),
-                    completed=obj.get("completed", False),
-                    required=obj.get("required", True)
-                ))
+                quest_objectives.append(
+                    QuestObjective(
+                        id=obj.get("id", f"{quest_id}_obj_{len(quest_objectives)}"),
+                        description=obj.get("description", ""),
+                        completed=obj.get("completed", False),
+                        required=obj.get("required", True),
+                    )
+                )
 
         # 创建任务
         new_quest = Quest(
@@ -383,7 +389,7 @@ class GameTools:
             title=title,
             description=description,
             status="active",
-            objectives=quest_objectives
+            objectives=quest_objectives,
         )
         self.state.quests.append(new_quest)
         return True
@@ -405,7 +411,7 @@ class GameTools:
                             self.add_item(
                                 item_id=item.get("id"),
                                 name=item.get("name"),
-                                quantity=item.get("quantity", 1)
+                                quantity=item.get("quantity", 1),
                             )
                 return True
         return False
@@ -445,7 +451,7 @@ class GameTools:
             "new_exp": self.state.player.__dict__["exp"],
             "old_level": old_level,
             "new_level": self.state.player.__dict__["level"],
-            "leveled_up": leveled_up
+            "leveled_up": leveled_up,
         }
 
     def _calculate_exp_for_next_level(self, current_level: int) -> int:
@@ -477,7 +483,7 @@ class GameTools:
             "hp_gain": hp_gain * (new_level - old_level),
             "stamina_gain": stamina_gain * (new_level - old_level),
             "new_max_hp": self.state.player.maxHp,
-            "new_max_stamina": self.state.player.maxStamina
+            "new_max_stamina": self.state.player.maxStamina,
         }
 
     # ---------- 物品使用系统 ----------
@@ -518,11 +524,7 @@ class GameTools:
 
     # ---------- 战斗系统 ----------
 
-    def roll_attack(
-        self,
-        weapon_bonus: int = 0,
-        advantage: bool = False
-    ) -> Dict[str, Any]:
+    def roll_attack(self, weapon_bonus: int = 0, advantage: bool = False) -> Dict[str, Any]:
         """攻击检定（1d20 + 武器加成）"""
         if advantage:
             roll = max(random.randint(1, 20), random.randint(1, 20))
@@ -539,14 +541,11 @@ class GameTools:
             "total": total,
             "critical_hit": critical_hit,
             "critical_miss": critical_miss,
-            "damage_multiplier": 2 if critical_hit else 1
+            "damage_multiplier": 2 if critical_hit else 1,
         }
 
     def calculate_damage(
-        self,
-        base_damage: int,
-        attack_roll: Dict[str, Any],
-        armor_class: int = 10
+        self, base_damage: int, attack_roll: Dict[str, Any], armor_class: int = 10
     ) -> Dict[str, Any]:
         """计算伤害"""
         hit = attack_roll["total"] >= armor_class
@@ -556,11 +555,7 @@ class GameTools:
 
         damage = base_damage * attack_roll.get("damage_multiplier", 1)
 
-        return {
-            "hit": True,
-            "damage": damage,
-            "critical": attack_roll.get("critical_hit", False)
-        }
+        return {"hit": True, "damage": damage, "critical": attack_roll.get("critical_hit", False)}
 
     # ---------- 记忆查询 ----------
 
@@ -572,23 +567,14 @@ class GameTools:
     # ---------- 存档系统 ----------
 
     def save_game(
-        self,
-        slot_id: int,
-        save_name: str,
-        user_id: str = "default_user"
+        self, slot_id: int, save_name: str, user_id: str = "default_user"
     ) -> Dict[str, Any]:
         """保存游戏到存档槽位"""
         if not self.db_manager:
-            return {
-                "success": False,
-                "message": "存档功能未启用（需要数据库管理器）"
-            }
+            return {"success": False, "message": "存档功能未启用（需要数据库管理器）"}
 
         if not (1 <= slot_id <= 10):
-            return {
-                "success": False,
-                "message": "存档槽位必须在 1-10 之间"
-            }
+            return {"success": False, "message": "存档槽位必须在 1-10 之间"}
 
         try:
             # 将GameState转换为字典
@@ -596,10 +582,7 @@ class GameTools:
 
             # 保存到数据库
             save_id = self.db_manager.save_game(
-                user_id=user_id,
-                slot_id=slot_id,
-                save_name=save_name,
-                game_state=game_state_dict
+                user_id=user_id, slot_id=slot_id, save_name=save_name, game_state=game_state_dict
             )
 
             return {
@@ -607,30 +590,21 @@ class GameTools:
                 "save_id": save_id,
                 "slot_id": slot_id,
                 "save_name": save_name,
-                "message": f"游戏已保存到槽位 {slot_id}"
+                "message": f"游戏已保存到槽位 {slot_id}",
             }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"保存失败: {str(e)}"
-            }
+            return {"success": False, "message": f"保存失败: {str(e)}"}
 
     def load_game(self, save_id: int) -> Dict[str, Any]:
         """加载存档"""
         if not self.db_manager:
-            return {
-                "success": False,
-                "message": "存档功能未启用（需要数据库管理器）"
-            }
+            return {"success": False, "message": "存档功能未启用（需要数据库管理器）"}
 
         try:
             save_data = self.db_manager.load_game(save_id)
             if not save_data:
-                return {
-                    "success": False,
-                    "message": f"存档 {save_id} 不存在"
-                }
+                return {"success": False, "message": f"存档 {save_id} 不存在"}
 
             # 加载游戏状态
             loaded_state = GameState(**save_data["game_state"])
@@ -642,14 +616,11 @@ class GameTools:
                 "success": True,
                 "save_id": save_id,
                 "metadata": save_data["metadata"],
-                "message": "存档加载成功"
+                "message": "存档加载成功",
             }
 
         except Exception as e:
-            return {
-                "success": False,
-                "message": f"加载失败: {str(e)}"
-            }
+            return {"success": False, "message": f"加载失败: {str(e)}"}
 
     def list_saves(self, user_id: str = "default_user") -> List[Dict[str, Any]]:
         """列出所有存档"""
@@ -663,11 +634,12 @@ class GameTools:
     def add_log(self, actor: str, text: str) -> None:
         """添加游戏日志"""
         import time
+
         entry = GameLogEntry(
             turn=self.state.world.time,
             actor=actor,  # type: ignore
             text=text,
-            timestamp=int(time.time())
+            timestamp=int(time.time()),
         )
         self.state.log.append(entry)
 
@@ -680,20 +652,12 @@ class GameTools:
             {
                 "name": "get_state",
                 "description": "获取当前完整游戏状态，包括玩家、世界、任务等",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
+                "input_schema": {"type": "object", "properties": {}, "required": []},
             },
             {
                 "name": "get_player_state",
                 "description": "获取玩家当前状态（生命、体力、背包、位置等）",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
+                "input_schema": {"type": "object", "properties": {}, "required": []},
             },
             {
                 "name": "add_item",
@@ -705,10 +669,13 @@ class GameTools:
                         "name": {"type": "string", "description": "物品名称"},
                         "quantity": {"type": "integer", "description": "数量", "default": 1},
                         "description": {"type": "string", "description": "物品描述"},
-                        "type": {"type": "string", "enum": ["weapon", "armor", "consumable", "key", "quest", "misc"]}
+                        "type": {
+                            "type": "string",
+                            "enum": ["weapon", "armor", "consumable", "key", "quest", "misc"],
+                        },
                     },
-                    "required": ["item_id", "name"]
-                }
+                    "required": ["item_id", "name"],
+                },
             },
             {
                 "name": "remove_item",
@@ -717,32 +684,28 @@ class GameTools:
                     "type": "object",
                     "properties": {
                         "item_id": {"type": "string"},
-                        "quantity": {"type": "integer", "default": 1}
+                        "quantity": {"type": "integer", "default": 1},
                     },
-                    "required": ["item_id"]
-                }
+                    "required": ["item_id"],
+                },
             },
             {
                 "name": "update_hp",
                 "description": "更新玩家生命值（正数增加，负数减少）",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "delta": {"type": "integer", "description": "变化量"}
-                    },
-                    "required": ["delta"]
-                }
+                    "properties": {"delta": {"type": "integer", "description": "变化量"}},
+                    "required": ["delta"],
+                },
             },
             {
                 "name": "set_location",
                 "description": "设置玩家当前位置",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "location_id": {"type": "string"}
-                    },
-                    "required": ["location_id"]
-                }
+                    "properties": {"location_id": {"type": "string"}},
+                    "required": ["location_id"],
+                },
             },
             {
                 "name": "set_flag",
@@ -751,10 +714,10 @@ class GameTools:
                     "type": "object",
                     "properties": {
                         "key": {"type": "string"},
-                        "value": {"description": "任意值（布尔、数字、字符串）"}
+                        "value": {"description": "任意值（布尔、数字、字符串）"},
                     },
-                    "required": ["key", "value"]
-                }
+                    "required": ["key", "value"],
+                },
             },
             {
                 "name": "roll_check",
@@ -762,14 +725,26 @@ class GameTools:
                 "input_schema": {
                     "type": "object",
                     "properties": {
-                        "type": {"type": "string", "enum": ["survival", "stealth", "persuasion", "perception", "strength", "intelligence", "luck", "custom"]},
+                        "type": {
+                            "type": "string",
+                            "enum": [
+                                "survival",
+                                "stealth",
+                                "persuasion",
+                                "perception",
+                                "strength",
+                                "intelligence",
+                                "luck",
+                                "custom",
+                            ],
+                        },
                         "dc": {"type": "integer", "description": "难度等级（Difficulty Class）"},
                         "modifier": {"type": "integer", "default": 0},
                         "advantage": {"type": "boolean", "default": False},
-                        "disadvantage": {"type": "boolean", "default": False}
+                        "disadvantage": {"type": "boolean", "default": False},
                     },
-                    "required": ["type", "dc"]
-                }
+                    "required": ["type", "dc"],
+                },
             },
             {
                 "name": "update_quest",
@@ -778,11 +753,14 @@ class GameTools:
                     "type": "object",
                     "properties": {
                         "quest_id": {"type": "string"},
-                        "status": {"type": "string", "enum": ["inactive", "active", "completed", "failed"]},
-                        "hints": {"type": "array", "items": {"type": "string"}}
+                        "status": {
+                            "type": "string",
+                            "enum": ["inactive", "active", "completed", "failed"],
+                        },
+                        "hints": {"type": "array", "items": {"type": "string"}},
                     },
-                    "required": ["quest_id"]
-                }
+                    "required": ["quest_id"],
+                },
             },
             {
                 "name": "create_quest",
@@ -802,13 +780,13 @@ class GameTools:
                                     "id": {"type": "string"},
                                     "description": {"type": "string"},
                                     "completed": {"type": "boolean"},
-                                    "required": {"type": "boolean"}
-                                }
-                            }
-                        }
+                                    "required": {"type": "boolean"},
+                                },
+                            },
+                        },
                     },
-                    "required": ["quest_id", "title", "description"]
-                }
+                    "required": ["quest_id", "title", "description"],
+                },
             },
             {
                 "name": "complete_quest",
@@ -830,37 +808,33 @@ class GameTools:
                                         "properties": {
                                             "id": {"type": "string"},
                                             "name": {"type": "string"},
-                                            "quantity": {"type": "integer"}
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                                            "quantity": {"type": "integer"},
+                                        },
+                                    },
+                                },
+                            },
+                        },
                     },
-                    "required": ["quest_id"]
-                }
+                    "required": ["quest_id"],
+                },
             },
             {
                 "name": "add_exp",
                 "description": "增加经验值，自动检测升级",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "amount": {"type": "integer", "description": "经验值数量"}
-                    },
-                    "required": ["amount"]
-                }
+                    "properties": {"amount": {"type": "integer", "description": "经验值数量"}},
+                    "required": ["amount"],
+                },
             },
             {
                 "name": "use_item",
                 "description": "使用消耗品（恢复HP、体力等）",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "item_id": {"type": "string"}
-                    },
-                    "required": ["item_id"]
-                }
+                    "properties": {"item_id": {"type": "string"}},
+                    "required": ["item_id"],
+                },
             },
             {
                 "name": "roll_attack",
@@ -869,10 +843,10 @@ class GameTools:
                     "type": "object",
                     "properties": {
                         "weapon_bonus": {"type": "integer", "default": 0},
-                        "advantage": {"type": "boolean", "default": False}
+                        "advantage": {"type": "boolean", "default": False},
                     },
-                    "required": []
-                }
+                    "required": [],
+                },
             },
             {
                 "name": "calculate_damage",
@@ -882,10 +856,14 @@ class GameTools:
                     "properties": {
                         "base_damage": {"type": "integer", "description": "基础伤害"},
                         "attack_roll": {"type": "object", "description": "攻击检定结果"},
-                        "armor_class": {"type": "integer", "default": 10, "description": "目标护甲等级"}
+                        "armor_class": {
+                            "type": "integer",
+                            "default": 10,
+                            "description": "目标护甲等级",
+                        },
                     },
-                    "required": ["base_damage", "attack_roll"]
-                }
+                    "required": ["base_damage", "attack_roll"],
+                },
             },
             {
                 "name": "save_game",
@@ -897,31 +875,25 @@ class GameTools:
                             "type": "integer",
                             "description": "存档槽位（1-10）",
                             "minimum": 1,
-                            "maximum": 10
+                            "maximum": 10,
                         },
-                        "save_name": {"type": "string", "description": "存档名称"}
+                        "save_name": {"type": "string", "description": "存档名称"},
                     },
-                    "required": ["slot_id", "save_name"]
-                }
+                    "required": ["slot_id", "save_name"],
+                },
             },
             {
                 "name": "load_game",
                 "description": "加载指定存档",
                 "input_schema": {
                     "type": "object",
-                    "properties": {
-                        "save_id": {"type": "integer", "description": "存档ID"}
-                    },
-                    "required": ["save_id"]
-                }
+                    "properties": {"save_id": {"type": "integer", "description": "存档ID"}},
+                    "required": ["save_id"],
+                },
             },
             {
                 "name": "list_saves",
                 "description": "列出所有存档",
-                "input_schema": {
-                    "type": "object",
-                    "properties": {},
-                    "required": []
-                }
-            }
+                "input_schema": {"type": "object", "properties": {}, "required": []},
+            },
         ]

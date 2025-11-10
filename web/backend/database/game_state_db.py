@@ -3,11 +3,15 @@
 基于 docs/TECHNICAL_IMPLEMENTATION_PLAN.md 的设计
 """
 
-import sqlite3
 import json
-from typing import Dict, List, Optional, Any
+import sqlite3
 from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class GameStateManager:
@@ -28,7 +32,8 @@ class GameStateManager:
 
         try:
             # 游戏存档表
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS game_saves (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id TEXT NOT NULL DEFAULT 'default_user',
@@ -41,10 +46,12 @@ class GameStateManager:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     UNIQUE(user_id, slot_id)
                 )
-            """)
+            """
+            )
 
             # 存档快照表（用于回滚）
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS save_snapshots (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     save_id INTEGER NOT NULL,
@@ -53,10 +60,12 @@ class GameStateManager:
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     FOREIGN KEY (save_id) REFERENCES game_saves(id) ON DELETE CASCADE
                 )
-            """)
+            """
+            )
 
             # 自动保存记录表
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS auto_saves (
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     user_id TEXT NOT NULL,
@@ -64,27 +73,36 @@ class GameStateManager:
                     turn_number INTEGER NOT NULL,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # 会话状态表（内存缓存的补充）
-            cursor.execute("""
+            cursor.execute(
+                """
                 CREATE TABLE IF NOT EXISTS session_states (
                     session_id TEXT PRIMARY KEY,
                     game_state TEXT NOT NULL,
                     last_updated TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )
-            """)
+            """
+            )
 
             # 创建索引
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_game_saves_user_id ON game_saves(user_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_save_snapshots_save_id ON save_snapshots(save_id)")
-            cursor.execute("CREATE INDEX IF NOT EXISTS idx_auto_saves_user_id ON auto_saves(user_id)")
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_game_saves_user_id ON game_saves(user_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_save_snapshots_save_id ON save_snapshots(save_id)"
+            )
+            cursor.execute(
+                "CREATE INDEX IF NOT EXISTS idx_auto_saves_user_id ON auto_saves(user_id)"
+            )
 
             conn.commit()
-            print("✅ 游戏状态数据库表初始化成功")
+            logger.info("✅ 游戏状态数据库表初始化成功")
 
         except Exception as e:
-            print(f"❌ 数据库表初始化失败: {e}")
+            logger.error(f"❌ 数据库表初始化失败: {e}")
             conn.rollback()
             raise
         finally:
@@ -98,9 +116,12 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT game_state FROM session_states WHERE session_id = ?
-            """, (session_id,))
+            """,
+                (session_id,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -116,16 +137,19 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT OR REPLACE INTO session_states (session_id, game_state, last_updated)
                 VALUES (?, ?, CURRENT_TIMESTAMP)
-            """, (session_id, json.dumps(game_state, ensure_ascii=False)))
+            """,
+                (session_id, json.dumps(game_state, ensure_ascii=False)),
+            )
 
             conn.commit()
             return True
 
         except Exception as e:
-            print(f"❌ 保存会话状态失败: {e}")
+            logger.error(f"❌ 保存会话状态失败: {e}")
             conn.rollback()
             return False
         finally:
@@ -151,7 +175,7 @@ class GameStateManager:
         slot_id: int,
         save_name: str,
         game_state: Dict[str, Any],
-        auto_save: bool = False
+        auto_save: bool = False,
     ) -> int:
         """
         保存游戏到存档槽位
@@ -176,11 +200,16 @@ class GameStateManager:
                 "location": game_state.get("player", {}).get("location"),
                 "hp": game_state.get("player", {}).get("hp", 100),
                 "max_hp": game_state.get("player", {}).get("maxHp", 100),
-                "level": game_state.get("player", {}).get("level", 1) if hasattr(game_state.get("player", {}), "level") else 1
+                "level": (
+                    game_state.get("player", {}).get("level", 1)
+                    if hasattr(game_state.get("player", {}), "level")
+                    else 1
+                ),
             }
 
             # 插入或更新存档
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO game_saves (user_id, slot_id, save_name, game_state, metadata)
                 VALUES (?, ?, ?, ?, ?)
                 ON CONFLICT(user_id, slot_id) DO UPDATE SET
@@ -188,36 +217,46 @@ class GameStateManager:
                     game_state = ?,
                     metadata = ?,
                     updated_at = CURRENT_TIMESTAMP
-            """, (
-                user_id, slot_id, save_name,
-                json.dumps(game_state, ensure_ascii=False),
-                json.dumps(metadata, ensure_ascii=False),
-                save_name,
-                json.dumps(game_state, ensure_ascii=False),
-                json.dumps(metadata, ensure_ascii=False)
-            ))
+            """,
+                (
+                    user_id,
+                    slot_id,
+                    save_name,
+                    json.dumps(game_state, ensure_ascii=False),
+                    json.dumps(metadata, ensure_ascii=False),
+                    save_name,
+                    json.dumps(game_state, ensure_ascii=False),
+                    json.dumps(metadata, ensure_ascii=False),
+                ),
+            )
 
             save_id = cursor.lastrowid
 
             # 如果不是自动保存，创建快照
             if not auto_save and save_id > 0:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO save_snapshots (save_id, turn_number, snapshot_data)
                     VALUES (?, ?, ?)
-                """, (save_id, metadata["turn_number"], json.dumps(game_state, ensure_ascii=False)))
+                """,
+                    (save_id, metadata["turn_number"], json.dumps(game_state, ensure_ascii=False)),
+                )
 
             # 如果是自动保存，也记录到auto_saves表
             if auto_save:
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO auto_saves (user_id, game_state, turn_number)
                     VALUES (?, ?, ?)
-                """, (user_id, json.dumps(game_state, ensure_ascii=False), metadata["turn_number"]))
+                """,
+                    (user_id, json.dumps(game_state, ensure_ascii=False), metadata["turn_number"]),
+                )
 
             conn.commit()
             return save_id
 
         except Exception as e:
-            print(f"❌ 保存游戏失败: {e}")
+            logger.error(f"❌ 保存游戏失败: {e}")
             conn.rollback()
             raise
         finally:
@@ -229,17 +268,20 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT game_state, metadata
                 FROM game_saves
                 WHERE id = ?
-            """, (save_id,))
+            """,
+                (save_id,),
+            )
 
             row = cursor.fetchone()
             if row:
                 return {
                     "game_state": json.loads(row[0]),
-                    "metadata": json.loads(row[1]) if row[1] else {}
+                    "metadata": json.loads(row[1]) if row[1] else {},
                 }
             return None
 
@@ -252,25 +294,30 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, slot_id, save_name, metadata,
                        screenshot_url, created_at, updated_at
                 FROM game_saves
                 WHERE user_id = ?
                 ORDER BY slot_id
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
 
             saves = []
             for row in cursor.fetchall():
-                saves.append({
-                    "save_id": row[0],
-                    "slot_id": row[1],
-                    "save_name": row[2],
-                    "metadata": json.loads(row[3]) if row[3] else {},
-                    "screenshot_url": row[4],
-                    "created_at": row[5],
-                    "updated_at": row[6]
-                })
+                saves.append(
+                    {
+                        "save_id": row[0],
+                        "slot_id": row[1],
+                        "save_name": row[2],
+                        "metadata": json.loads(row[3]) if row[3] else {},
+                        "screenshot_url": row[4],
+                        "created_at": row[5],
+                        "updated_at": row[6],
+                    }
+                )
 
             return saves
 
@@ -295,15 +342,18 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO save_snapshots (save_id, turn_number, snapshot_data)
                 VALUES (?, ?, ?)
-            """, (save_id, turn_number, json.dumps(game_state, ensure_ascii=False)))
+            """,
+                (save_id, turn_number, json.dumps(game_state, ensure_ascii=False)),
+            )
 
             conn.commit()
             return True
         except Exception as e:
-            print(f"❌ 创建快照失败: {e}")
+            logger.error(f"❌ 创建快照失败: {e}")
             conn.rollback()
             return False
         finally:
@@ -315,21 +365,22 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, turn_number, created_at
                 FROM save_snapshots
                 WHERE save_id = ?
                 ORDER BY turn_number DESC
                 LIMIT ?
-            """, (save_id, limit))
+            """,
+                (save_id, limit),
+            )
 
             snapshots = []
             for row in cursor.fetchall():
-                snapshots.append({
-                    "snapshot_id": row[0],
-                    "turn_number": row[1],
-                    "created_at": row[2]
-                })
+                snapshots.append(
+                    {"snapshot_id": row[0], "turn_number": row[1], "created_at": row[2]}
+                )
 
             return snapshots
 
@@ -342,9 +393,12 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT snapshot_data FROM save_snapshots WHERE id = ?
-            """, (snapshot_id,))
+            """,
+                (snapshot_id,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -362,13 +416,16 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, game_state, turn_number, created_at
                 FROM auto_saves
                 WHERE user_id = ?
                 ORDER BY created_at DESC
                 LIMIT 1
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
 
             row = cursor.fetchone()
             if row:
@@ -376,7 +433,7 @@ class GameStateManager:
                     "autosave_id": row[0],
                     "game_state": json.loads(row[1]),
                     "turn_number": row[2],
-                    "created_at": row[3]
+                    "created_at": row[3],
                 }
             return None
 
@@ -389,7 +446,8 @@ class GameStateManager:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 DELETE FROM auto_saves
                 WHERE user_id = ? AND id NOT IN (
                     SELECT id FROM auto_saves
@@ -397,7 +455,9 @@ class GameStateManager:
                     ORDER BY created_at DESC
                     LIMIT ?
                 )
-            """, (user_id, user_id, keep_count))
+            """,
+                (user_id, user_id, keep_count),
+            )
 
             conn.commit()
             return cursor.rowcount
@@ -407,6 +467,7 @@ class GameStateManager:
 
 
 # ==================== 会话状态缓存（内存 + 数据库） ====================
+
 
 class GameStateCache:
     """游戏状态缓存 - 内存缓存 + 数据库持久化"""

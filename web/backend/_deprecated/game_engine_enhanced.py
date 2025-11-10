@@ -276,7 +276,7 @@ class GameEngineEnhanced:
         tools_instance.add_log("player", request.player_input)
 
         final_narration = "\n\n".join(narration_parts)
-        tools_instance.add_log("system", final_narration[:100] + "..." if len(final_narration) > 100 else final_narration)
+        tools_instance.add_log("system", final_narration)  # 🔥 修复：保存完整叙事，不截断
 
         # 7. 保存状态
         self.state_cache.save_state(request.session_id, state.model_dump())

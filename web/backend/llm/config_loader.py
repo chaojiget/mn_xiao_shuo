@@ -1,11 +1,19 @@
 """
 LLM 后端配置加载器
+
+注意：推荐使用 config.settings.Settings 来获取配置。
+这个类主要用于加载 YAML 配置文件（向后兼容）。
 """
 
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, Any
+from typing import Any, Dict
+
+import yaml
+
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class LLMConfigLoader:
@@ -30,14 +38,13 @@ class LLMConfigLoader:
         config_file = Path(self.config_path)
 
         if not config_file.exists():
-            print(f"[WARNING] 配置文件不存在: {self.config_path}")
-            print("[INFO] 使用默认配置: LangChain + DeepSeek")
+            logger.warning(f"[WARNING] 配置文件不存在: {self.config_path}")
+            # 使用统一的默认模型（DeepSeek，符合文档）
+            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+            logger.info(f"[INFO] 使用默认配置: LangChain + {default_model}")
             return {
                 "backend": "langchain",
-                "langchain": {
-                    "model": "deepseek/deepseek-v3.1-terminus",
-                    "temperature": 0.7
-                }
+                "langchain": {"model": default_model, "temperature": 0.7},
             }
 
         with open(config_file, "r", encoding="utf-8") as f:
@@ -87,14 +94,14 @@ class LLMConfigLoader:
         backend_type = self.get_backend_type()
 
         if backend_type not in ["litellm", "claude"]:
-            print(f"[ERROR] 无效的后端类型: {backend_type}")
+            logger.error(f"[ERROR] 无效的后端类型: {backend_type}")
             return False
 
         if backend_type == "claude":
             # 检查是否有 API key
             api_key = self.config.get("claude", {}).get("api_key")
             if not api_key:
-                print("[ERROR] Claude 后端需要设置 ANTHROPIC_API_KEY")
+                logger.error("[ERROR] Claude 后端需要设置 ANTHROPIC_API_KEY")
                 return False
 
         return True
@@ -104,20 +111,21 @@ class LLMConfigLoader:
         backend_type = self.get_backend_type()
         backend_config = self.get_backend_config()
 
-        print(f"\n{'='*50}")
-        print(f"LLM 后端配置")
-        print(f"{'='*50}")
-        print(f"后端类型: {backend_type}")
+        logger.info(f"\n{'='*50}")
+        logger.info(f"LLM 后端配置")
+        logger.info(f"{'='*50}")
+        logger.info(f"后端类型: {backend_type}")
 
         if backend_type == "langchain":
-            print(f"默认模型: {backend_config.get('model', 'deepseek/deepseek-v3.1-terminus')}")
-            print(f"温度: {backend_config.get('temperature', 0.7)}")
-            print(f"成本: 低 (~$0.001/回合)")
+            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+            logger.info(f"默认模型: {backend_config.get('model', default_model)}")
+            logger.info(f"温度: {backend_config.get('temperature', 0.7)}")
+            logger.info(f"成本: 低 (~$0.001-0.005/回合)")
         elif backend_type == "litellm":
-            print(f"⚠️  LiteLLM 已被移除，请使用 LangChain")
-            print(f"默认模型: {backend_config.get('model', 'deepseek')}")
+            logger.warning(f"⚠️  LiteLLM 已被移除，请使用 LangChain")
+            logger.info(f"默认模型: {backend_config.get('model', 'deepseek')}")
         elif backend_type == "claude":
-            print(f"模型: {backend_config.get('model', 'claude-sonnet-4')}")
-            print(f"成本: 高 (~$0.015/回合)")
+            logger.info(f"模型: {backend_config.get('model', 'claude-sonnet-4')}")
+            logger.info(f"成本: 高 (~$0.015/回合)")
 
-        print(f"{'='*50}\n")
+        logger.info(f"{'='*50}\n")

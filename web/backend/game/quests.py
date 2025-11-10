@@ -2,11 +2,16 @@
 任务系统 - 数据驱动的任务管理和规则引擎
 """
 
-import yaml
 from pathlib import Path
-from typing import Dict, List, Any, Optional
+from typing import Any, Dict, List, Optional
+
+import yaml
 from pydantic import BaseModel
+
 from .game_tools import GameState, GameTools, Quest
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class QuestCondition(BaseModel):
@@ -70,7 +75,7 @@ class QuestEngine:
     def _load_quests(self):
         """从YAML文件加载所有任务配置"""
         if not self.quest_data_path.exists():
-            print(f"[WARNING] 任务目录不存在: {self.quest_data_path}")
+            logger.warning(f"[WARNING] 任务目录不存在: {self.quest_data_path}")
             return
 
         for quest_file in self.quest_data_path.glob("*.yaml"):
@@ -79,9 +84,9 @@ class QuestEngine:
                     data = yaml.safe_load(f)
                     config = QuestConfig(**data)
                     self.quest_configs[config.id] = config
-                    print(f"[INFO] 加载任务: {config.id} - {config.title}")
+                    logger.info(f"[INFO] 加载任务: {config.id} - {config.title}")
             except Exception as e:
-                print(f"[ERROR] 加载任务失败 {quest_file}: {e}")
+                logger.error(f"[ERROR] 加载任务失败 {quest_file}: {e}")
 
     def check_condition(
         self,
@@ -141,7 +146,7 @@ class QuestEngine:
             return any(keyword in last_player_input for keyword in condition.action_contains)
 
         else:
-            print(f"[WARNING] 未知条件类型: {condition.type}")
+            logger.warning(f"[WARNING] 未知条件类型: {condition.type}")
             return False
 
     def check_quest_trigger(
@@ -206,7 +211,7 @@ class QuestEngine:
                     )
                     state.quests.append(new_quest)
                     events.append(f"📜 新任务激活: {quest_config.title}")
-                    print(f"[INFO] 激活任务: {quest_id}")
+                    logger.info(f"[INFO] 激活任务: {quest_id}")
 
         # 检查已激活任务的进度
         for quest in state.quests:
@@ -230,6 +235,7 @@ class QuestEngine:
                     if self.check_stage_completion(stage, state, tools, last_player_input):
                         # 标记阶段完成
                         from game_tools import QuestObjective
+
                         objective = QuestObjective(
                             id=stage.id,
                             description=stage.name,
@@ -237,7 +243,7 @@ class QuestEngine:
                         )
                         quest.objectives.append(objective)
                         events.append(f"✅ 任务进度: {quest.title} - {stage.name}")
-                        print(f"[INFO] 完成阶段: {quest.id}/{stage.id}")
+                        logger.info(f"[INFO] 完成阶段: {quest.id}/{stage.id}")
 
             # 检查任务是否全部完成
             all_stages_done = len(quest.objectives) == len(quest_config.stages)
@@ -248,7 +254,7 @@ class QuestEngine:
                 # 发放奖励
                 reward_msgs = self.grant_rewards(quest_config, state, tools)
                 events.extend(reward_msgs)
-                print(f"[INFO] 任务完成: {quest.id}")
+                logger.info(f"[INFO] 任务完成: {quest.id}")
 
         return events
 

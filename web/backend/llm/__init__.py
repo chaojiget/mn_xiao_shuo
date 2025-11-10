@@ -2,7 +2,7 @@
 LLM 后端抽象层 - LangChain 1.0 实现
 """
 
-from .base import LLMBackend, LLMMessage, LLMTool, LLMResponse
+from .base import LLMBackend, LLMMessage, LLMResponse, LLMTool
 from .langchain_backend import LangChainBackend
 
 __all__ = [
@@ -42,6 +42,6 @@ def get_available_backends() -> dict:
             "description": "LangChain 1.0 + OpenRouter - 支持多种模型",
             "cost": "中",
             "models": ["deepseek", "claude-sonnet", "claude-haiku", "gpt-4", "qwen"],
-            "features": ["streaming", "tools", "structured_output"]
+            "features": ["streaming", "tools", "structured_output"],
         }
     }

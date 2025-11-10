@@ -4,18 +4,21 @@ LLM 后端抽象基类
 """
 
 from abc import ABC, abstractmethod
-from typing import Dict, List, Any, Optional, AsyncIterator
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 from pydantic import BaseModel
 
 
 class LLMMessage(BaseModel):
     """LLM 消息"""
+
     role: str  # system, user, assistant
     content: str
 
 
 class LLMTool(BaseModel):
     """LLM 工具定义"""
+
     name: str
     description: str
     input_schema: Dict[str, Any]
@@ -23,6 +26,7 @@ class LLMTool(BaseModel):
 
 class LLMResponse(BaseModel):
     """LLM 响应"""
+
     content: str  # 生成的文本
     tool_calls: List[Dict[str, Any]] = []  # 工具调用
     metadata: Dict[str, Any] = {}  # 元数据(tokens, cost等)
@@ -47,7 +51,7 @@ class LLMBackend(ABC):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> LLMResponse:
         """
         生成文本响应
@@ -73,7 +77,7 @@ class LLMBackend(ABC):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         生成结构化 JSON 输出
@@ -99,7 +103,7 @@ class LLMBackend(ABC):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
         流式生成文本
@@ -125,5 +129,5 @@ class LLMBackend(ABC):
         return {
             "backend": self.__class__.__name__,
             "model": self.get_model_name(),
-            "config": self.config
+            "config": self.config,
         }

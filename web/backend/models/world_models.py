@@ -3,15 +3,17 @@
 用于世界雏形管理与逐步细化
 """
 
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
 
+from pydantic import BaseModel, Field
 
 # ============ 风格圣经 ============
 
+
 class SyntaxPreferences(BaseModel):
     """句法偏好"""
+
     avg_sentence_len: int = 18
     prefer_active: bool = True
     paragraph_rhythm: str = "varied"  # varied/short/flowing
@@ -19,6 +21,7 @@ class SyntaxPreferences(BaseModel):
 
 class StyleBible(BaseModel):
     """风格圣经"""
+
     tone: str  # 基调: "冷冽、压抑、写实"
     sensory: List[str]  # 感官词集: ["寒气", "盐霜", "铁锈味"]
     syntax: SyntaxPreferences
@@ -28,8 +31,10 @@ class StyleBible(BaseModel):
 
 # ============ 世界脚手架 ============
 
+
 class WorldScaffold(BaseModel):
     """世界脚手架"""
+
     id: str
     novel_id: str
     name: str
@@ -59,8 +64,10 @@ class WorldScaffold(BaseModel):
 
 # ============ 区域 ============
 
+
 class Region(BaseModel):
     """区域"""
+
     id: str
     world_id: str
     name: str
@@ -94,8 +101,10 @@ class Region(BaseModel):
 
 # ============ 地点 ============
 
+
 class LocationSnapshot(BaseModel):
     """地点快照"""
+
     macro: Optional[str] = None  # 宏观描述
     geometry: Optional[List[str]] = None  # 几何特征
     interactables: Optional[List[str]] = None  # 可交互物
@@ -105,6 +114,7 @@ class LocationSnapshot(BaseModel):
 
 class Location(BaseModel):
     """地点"""
+
     id: str
     region_id: str
     name: str
@@ -144,8 +154,10 @@ class Location(BaseModel):
 
 # ============ 兴趣点 ============
 
+
 class POI(BaseModel):
     """兴趣点"""
+
     id: str
     location_id: str
     name: str
@@ -172,8 +184,10 @@ class POI(BaseModel):
 
 # ============ 派系 ============
 
+
 class Faction(BaseModel):
     """派系"""
+
     id: str
     world_id: str
     name: str
@@ -208,8 +222,10 @@ class Faction(BaseModel):
 
 # ============ 物品 ============
 
+
 class WorldItem(BaseModel):
     """世界物品"""
+
     id: str
     world_id: str
     name: str
@@ -237,8 +253,10 @@ class WorldItem(BaseModel):
 
 # ============ 生物 ============
 
+
 class Creature(BaseModel):
     """生物"""
+
     id: str
     world_id: str
     name: str
@@ -270,8 +288,10 @@ class Creature(BaseModel):
 
 # ============ 任务钩子 ============
 
+
 class QuestHook(BaseModel):
     """任务钩子"""
+
     id: str
     world_id: str
 
@@ -300,8 +320,10 @@ class QuestHook(BaseModel):
 
 # ============ 细化层 ============
 
+
 class DetailLayer(BaseModel):
     """细化层"""
+
     id: str
     target_type: Literal["location", "poi", "region", "creature"]
     target_id: str
@@ -326,8 +348,10 @@ class DetailLayer(BaseModel):
 
 # ============ 世界事件 ============
 
+
 class WorldEvent(BaseModel):
     """世界事件"""
+
     id: int
     world_id: str
     novel_id: str
@@ -352,8 +376,10 @@ class WorldEvent(BaseModel):
 
 # ============ 风格词库 ============
 
+
 class StyleVocabulary(BaseModel):
     """风格词库"""
+
     id: int
     world_id: str
 
@@ -378,8 +404,10 @@ class StyleVocabulary(BaseModel):
 
 # ============ 冲突检测 ============
 
+
 class CanonConflict(BaseModel):
     """Canon冲突"""
+
     id: int
     world_id: str
 
@@ -405,8 +433,10 @@ class CanonConflict(BaseModel):
 
 # ============ 生成请求 ============
 
+
 class WorldGenerationRequest(BaseModel):
     """世界生成请求"""
+
     novel_id: str
     theme: str
     tone: str
@@ -423,6 +453,7 @@ class WorldGenerationRequest(BaseModel):
 
 class RegionGenerationRequest(BaseModel):
     """区域生成请求"""
+
     world_id: str
     count: int = Field(default=1, ge=1, le=10)
     constraints: Optional[Dict[str, Any]] = None
@@ -430,6 +461,7 @@ class RegionGenerationRequest(BaseModel):
 
 class LocationGenerationRequest(BaseModel):
     """地点生成请求"""
+
     region_id: str
     count: int = Field(default=1, ge=1, le=15)
     types: Optional[List[str]] = None
@@ -437,6 +469,7 @@ class LocationGenerationRequest(BaseModel):
 
 class POIGenerationRequest(BaseModel):
     """POI生成请求"""
+
     location_id: str
     count: int = Field(default=1, ge=1, le=10)
     types: Optional[List[str]] = None
@@ -444,18 +477,24 @@ class POIGenerationRequest(BaseModel):
 
 # ============ 细化请求 ============
 
+
 class LocationRefinementRequest(BaseModel):
     """地点细化请求"""
+
     location_id: str
     turn: int
     target_detail_level: int = Field(default=2, ge=1, le=3)
     passes: List[Literal["structure", "sensory", "affordance", "cinematic"]] = [
-        "structure", "sensory", "affordance", "cinematic"
+        "structure",
+        "sensory",
+        "affordance",
+        "cinematic",
     ]
 
 
 class AffordanceExtractionRequest(BaseModel):
     """可供性提取请求"""
+
     location_id: str
     character_state: Optional[Dict[str, Any]] = None  # 角色状态
     context: Optional[Dict[str, Any]] = None  # 上下文
@@ -463,8 +502,10 @@ class AffordanceExtractionRequest(BaseModel):
 
 # ============ 响应模型 ============
 
+
 class GenerationProgress(BaseModel):
     """生成进度"""
+
     stage: str
     progress: float  # 0.0-1.0
     message: str
@@ -473,6 +514,7 @@ class GenerationProgress(BaseModel):
 
 class WorldGenerationResponse(BaseModel):
     """世界生成响应"""
+
     world: WorldScaffold
     regions: List[Region]
     summary: str
@@ -480,6 +522,7 @@ class WorldGenerationResponse(BaseModel):
 
 class RefinementResult(BaseModel):
     """细化结果"""
+
     location_id: str
     detail_level: int
     layers: List[DetailLayer]
@@ -489,5 +532,6 @@ class RefinementResult(BaseModel):
 
 class AffordanceResult(BaseModel):
     """可供性结果"""
+
     affordances: List[Dict[str, Any]]  # [{verb, object, requirement?, risk?, expectedOutcome?}]
     suggested_actions: List[str]  # 简短的动宾短语 (UI chips)

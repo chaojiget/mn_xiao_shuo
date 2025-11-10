@@ -3,23 +3,27 @@ WorldPack v1 - 完整的预生成世界数据模型
 包含世界、区域、地点、NPC、任务、掉落表、遭遇表等
 """
 
-from typing import Optional, List, Dict, Any, Literal
-from pydantic import BaseModel, Field
 from datetime import datetime
+from typing import Any, Dict, List, Literal, Optional
 
+from pydantic import BaseModel, Field
 
 # ============ 基础组件 ============
 
+
 class Coord(BaseModel):
     """坐标"""
+
     x: int
     y: int
 
 
 # ============ 任务系统 ============
 
+
 class QuestObjective(BaseModel):
     """任务目标"""
+
     id: str
     text: str
     done: bool = False
@@ -28,6 +32,7 @@ class QuestObjective(BaseModel):
 
 class Quest(BaseModel):
     """任务"""
+
     id: str
     title: str
     line: Literal["main", "side"]
@@ -40,8 +45,10 @@ class Quest(BaseModel):
 
 # ============ NPC 系统 ============
 
+
 class NPC(BaseModel):
     """NPC"""
+
     id: str
     name: str
     role: str
@@ -56,8 +63,10 @@ class NPC(BaseModel):
 
 # ============ 掉落与遭遇 ============
 
+
 class LootEntry(BaseModel):
     """掉落条目"""
+
     item_id: str
     weight: int
     quantity_min: int = 1
@@ -66,12 +75,14 @@ class LootEntry(BaseModel):
 
 class LootTable(BaseModel):
     """掉落表"""
+
     id: str
     entries: List[LootEntry]
 
 
 class EncounterEntry(BaseModel):
     """遭遇条目"""
+
     encounter_id: str
     weight: int
     difficulty_modifier: float = 1.0
@@ -79,6 +90,7 @@ class EncounterEntry(BaseModel):
 
 class EncounterTable(BaseModel):
     """遭遇表"""
+
     id: str
     biome: Optional[str] = None  # 适用的生态
     time_of_day: Optional[str] = None  # "day"/"night"
@@ -88,8 +100,10 @@ class EncounterTable(BaseModel):
 
 # ============ 地点系统 ============
 
+
 class POI(BaseModel):
     """兴趣点"""
+
     id: str
     name: str
     kind: Literal["dungeon", "town", "ruin", "cave", "camp", "landmark"]
@@ -102,6 +116,7 @@ class POI(BaseModel):
 
 class Location(BaseModel):
     """地点"""
+
     id: str
     name: str
     biome: Literal["forest", "desert", "swamp", "mountain", "plains", "sea", "city"]
@@ -113,8 +128,10 @@ class Location(BaseModel):
 
 # ============ 世界元数据 ============
 
+
 class WorldMeta(BaseModel):
     """世界元数据"""
+
     id: str
     title: str
     seed: int
@@ -127,8 +144,10 @@ class WorldMeta(BaseModel):
 
 # ============ WorldPack ============
 
+
 class WorldPack(BaseModel):
     """世界包 - 完整的预生成世界数据"""
+
     meta: WorldMeta
     locations: List[Location]
     npcs: List[NPC]
@@ -156,18 +175,14 @@ class WorldPack(BaseModel):
         location_ids = {loc.id for loc in self.locations}
         for npc in self.npcs:
             if npc.home_location_id and npc.home_location_id not in location_ids:
-                problems.append(
-                    f"NPC {npc.id} 引用不存在的地点 {npc.home_location_id}"
-                )
+                problems.append(f"NPC {npc.id} 引用不存在的地点 {npc.home_location_id}")
 
         # 检查 Location 的 NPCs
         npc_ids = {npc.id for npc in self.npcs}
         for loc in self.locations:
             for npc_id in loc.npcs:
                 if npc_id not in npc_ids:
-                    problems.append(
-                        f"地点 {loc.id} 引用不存在的 NPC {npc_id}"
-                    )
+                    problems.append(f"地点 {loc.id} 引用不存在的 NPC {npc_id}")
 
         # 检查 POI 的掉落表和遭遇表
         loot_table_ids = {t.id for t in self.loot_tables}
@@ -176,13 +191,9 @@ class WorldPack(BaseModel):
         for loc in self.locations:
             for poi in loc.pois:
                 if poi.loot_table_id and poi.loot_table_id not in loot_table_ids:
-                    problems.append(
-                        f"POI {poi.id} 引用不存在的掉落表 {poi.loot_table_id}"
-                    )
+                    problems.append(f"POI {poi.id} 引用不存在的掉落表 {poi.loot_table_id}")
                 if poi.encounter_table_id and poi.encounter_table_id not in encounter_table_ids:
-                    problems.append(
-                        f"POI {poi.id} 引用不存在的遭遇表 {poi.encounter_table_id}"
-                    )
+                    problems.append(f"POI {poi.id} 引用不存在的遭遇表 {poi.encounter_table_id}")
 
         return problems
 
@@ -223,8 +234,10 @@ class WorldPack(BaseModel):
 
 # ============ 生成请求 ============
 
+
 class WorldGenerationRequest(BaseModel):
     """世界生成请求"""
+
     title: str
     seed: Optional[int] = None
     tone: Literal["dark", "epic", "cozy", "mystery", "whimsical"] = "epic"
@@ -236,8 +249,10 @@ class WorldGenerationRequest(BaseModel):
 
 # ============ 生成进度 ============
 
+
 class WorldGenerationJob(BaseModel):
     """世界生成任务"""
+
     id: str
     world_id: str
     phase: Literal[
@@ -250,7 +265,7 @@ class WorldGenerationJob(BaseModel):
         "ENCOUNTER_TABLES",
         "INDEXING",
         "READY",
-        "FAILED"
+        "FAILED",
     ] = "QUEUED"
     progress: float = Field(default=0.0, ge=0.0, le=1.0)
     error: Optional[str] = None
@@ -260,6 +275,7 @@ class WorldGenerationJob(BaseModel):
 
 class GenerationProgress(BaseModel):
     """生成进度"""
+
     phase: str
     progress: float  # 0.0-1.0
     message: str
@@ -268,8 +284,10 @@ class GenerationProgress(BaseModel):
 
 # ============ 快照系统 ============
 
+
 class WorldSnapshot(BaseModel):
     """世界快照"""
+
     id: int
     world_id: str
     tag: str
@@ -278,8 +296,10 @@ class WorldSnapshot(BaseModel):
 
 # ============ Fog of War ============
 
+
 class WorldDiscovery(BaseModel):
     """世界发现记录"""
+
     session_id: str
     world_id: str
     chunk_x: int

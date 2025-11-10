@@ -4,33 +4,37 @@ Phase 2 - 任务系统实现
 定义任务相关的数据结构：Quest, QuestObjective, QuestReward
 """
 
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class QuestType(str, Enum):
     """任务类型"""
-    MAIN = "main"       # 主线任务
-    SIDE = "side"       # 支线任务
-    HIDDEN = "hidden"   # 隐藏任务
+
+    MAIN = "main"  # 主线任务
+    SIDE = "side"  # 支线任务
+    HIDDEN = "hidden"  # 隐藏任务
 
 
 class QuestStatus(str, Enum):
     """任务状态"""
-    AVAILABLE = "available"   # 可接取
-    ACTIVE = "active"         # 进行中
-    COMPLETED = "completed"   # 已完成
-    FAILED = "failed"         # 失败
+
+    AVAILABLE = "available"  # 可接取
+    ACTIVE = "active"  # 进行中
+    COMPLETED = "completed"  # 已完成
+    FAILED = "failed"  # 失败
 
 
 class ObjectiveType(str, Enum):
     """任务目标类型"""
-    EXPLORE = "explore"   # 探索地点
-    COLLECT = "collect"   # 收集物品
-    DEFEAT = "defeat"     # 击败敌人
-    TALK = "talk"         # 对话
-    REACH = "reach"       # 到达地点
+
+    EXPLORE = "explore"  # 探索地点
+    COLLECT = "collect"  # 收集物品
+    DEFEAT = "defeat"  # 击败敌人
+    TALK = "talk"  # 对话
+    REACH = "reach"  # 到达地点
 
 
 class QuestObjective(BaseModel):
@@ -38,6 +42,7 @@ class QuestObjective(BaseModel):
 
     单个任务可以有多个目标
     """
+
     id: str
     type: ObjectiveType
     description: str
@@ -68,16 +73,14 @@ class QuestObjective(BaseModel):
 
 class QuestReward(BaseModel):
     """任务奖励"""
+
     exp: int = 0
     gold: int = 0
     items: List[Dict[str, Any]] = Field(default_factory=list)
 
     def add_item(self, item_id: str, quantity: int = 1):
         """添加物品奖励"""
-        self.items.append({
-            "id": item_id,
-            "quantity": quantity
-        })
+        self.items.append({"id": item_id, "quantity": quantity})
 
 
 class Quest(BaseModel):
@@ -85,6 +88,7 @@ class Quest(BaseModel):
 
     完整的任务定义，包含类型、目标、奖励等
     """
+
     id: str
     type: QuestType
     title: str
@@ -172,7 +176,9 @@ class Quest(BaseModel):
             "status": self.status,
             "objectives_completed": completed_objectives,
             "objectives_total": total_objectives,
-            "progress_percent": (completed_objectives / total_objectives * 100) if total_objectives > 0 else 0,
+            "progress_percent": (
+                (completed_objectives / total_objectives * 100) if total_objectives > 0 else 0
+            ),
             "objectives": [
                 {
                     "id": obj.id,
@@ -180,10 +186,10 @@ class Quest(BaseModel):
                     "current": obj.current,
                     "required": obj.required,
                     "completed": obj.completed,
-                    "progress_percent": obj.get_progress_percent()
+                    "progress_percent": obj.get_progress_percent(),
                 }
                 for obj in self.objectives
-            ]
+            ],
         }
 
     def update_objective(self, objective_id: str, amount: int = 1) -> bool:
@@ -203,6 +209,7 @@ class Quest(BaseModel):
 
 
 # ==================== 辅助函数 ====================
+
 
 def create_quest_from_dict(data: Dict[str, Any]) -> Quest:
     """从字典创建 Quest 对象
@@ -235,7 +242,7 @@ def create_quest_from_dict(data: Dict[str, Any]) -> Quest:
         prerequisite_quests=data.get("prerequisite_quests", []),
         next_quests=data.get("next_quests", []),
         giver_npc=data.get("giver_npc"),
-        location=data.get("location")
+        location=data.get("location"),
     )
 
     return quest

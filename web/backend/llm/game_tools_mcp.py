@@ -13,10 +13,13 @@
 这些工具可以让 Agent 直接操作游戏状态
 """
 
-from claude_agent_sdk import tool, create_sdk_mcp_server
 import random
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
 
+from claude_agent_sdk import create_sdk_mcp_server, tool
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 # ========================================
 # 骰子和检定工具
@@ -735,6 +738,6 @@ if __name__ == "__main__":
             prompt="帮我投一个20面骰子,然后进行一次敏捷检定(难度15,玩家加值+3)",
             options=opts
         ):
-            print(msg)
+            logger.info(msg)
 
     anyio.run(test_game_tools())

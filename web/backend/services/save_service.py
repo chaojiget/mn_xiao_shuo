@@ -4,11 +4,11 @@ Phase 2 - 存档系统实现
 实现游戏的保存、加载、删除、快照等功能
 """
 
-from typing import Optional, List, Dict, Any
-from datetime import datetime
 import json
 import sqlite3
+from datetime import datetime
 from pathlib import Path
+from typing import Any, Dict, List, Optional
 
 
 class SaveService:
@@ -44,7 +44,7 @@ class SaveService:
         slot_id: int,
         save_name: str,
         game_state: Dict[str, Any],
-        auto_save: bool = False
+        auto_save: bool = False,
     ) -> int:
         """保存游戏到存档槽位
 
@@ -99,7 +99,7 @@ class SaveService:
                 "location": location,
                 "level": player.get("level", 1),
                 "hp": player.get("hp", 100),
-                "max_hp": player.get("maxHp", player.get("max_hp", 100))  # 支持 maxHp 和 max_hp
+                "max_hp": player.get("maxHp", player.get("max_hp", 100)),  # 支持 maxHp 和 max_hp
             }
 
             # 序列化游戏状态和元数据
@@ -107,7 +107,8 @@ class SaveService:
             metadata_json = json.dumps(metadata, ensure_ascii=False)
 
             # 插入或更新存档
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO game_saves (user_id, slot_id, save_name, game_state, metadata, updated_at)
                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(user_id, slot_id) DO UPDATE SET
@@ -115,10 +116,14 @@ class SaveService:
                     game_state = excluded.game_state,
                     metadata = excluded.metadata,
                     updated_at = CURRENT_TIMESTAMP
-            """, (user_id, slot_id, save_name, game_state_json, metadata_json))
+            """,
+                (user_id, slot_id, save_name, game_state_json, metadata_json),
+            )
 
             # 获取存档ID
-            cursor.execute("SELECT id FROM game_saves WHERE user_id = ? AND slot_id = ?", (user_id, slot_id))
+            cursor.execute(
+                "SELECT id FROM game_saves WHERE user_id = ? AND slot_id = ?", (user_id, slot_id)
+            )
             row = cursor.fetchone()
             save_id = row[0] if row else cursor.lastrowid
 
@@ -127,10 +132,13 @@ class SaveService:
                 turn_number = game_state.get("turn_number", 0)
                 snapshot_json = json.dumps(game_state, ensure_ascii=False)
 
-                cursor.execute("""
+                cursor.execute(
+                    """
                     INSERT INTO save_snapshots (save_id, turn_number, snapshot_data)
                     VALUES (?, ?, ?)
-                """, (save_id, turn_number, snapshot_json))
+                """,
+                    (save_id, turn_number, snapshot_json),
+                )
 
             conn.commit()
             return save_id
@@ -156,12 +164,15 @@ class SaveService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, slot_id, save_name, game_state, metadata,
                        screenshot_url, created_at, updated_at
                 FROM game_saves
                 WHERE id = ?
-            """, (save_id,))
+            """,
+                (save_id,),
+            )
 
             row = cursor.fetchone()
             if not row:
@@ -179,8 +190,8 @@ class SaveService:
                     "save_name": row[2],
                     "screenshot_url": row[5],
                     "created_at": row[6],
-                    "updated_at": row[7]
-                }
+                    "updated_at": row[7],
+                },
             }
 
         finally:
@@ -200,27 +211,32 @@ class SaveService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, slot_id, save_name, metadata,
                        screenshot_url, created_at, updated_at
                 FROM game_saves
                 WHERE user_id = ?
                 ORDER BY slot_id
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
 
             saves = []
             for row in cursor.fetchall():
                 metadata = json.loads(row[3]) if row[3] else {}
 
-                saves.append({
-                    "save_id": row[0],
-                    "slot_id": row[1],
-                    "save_name": row[2],
-                    "metadata": metadata,
-                    "screenshot_url": row[4],
-                    "created_at": row[5],
-                    "updated_at": row[6]
-                })
+                saves.append(
+                    {
+                        "save_id": row[0],
+                        "slot_id": row[1],
+                        "save_name": row[2],
+                        "metadata": metadata,
+                        "screenshot_url": row[4],
+                        "created_at": row[5],
+                        "updated_at": row[6],
+                    }
+                )
 
             return saves
 
@@ -249,12 +265,7 @@ class SaveService:
         finally:
             conn.close()
 
-    def create_snapshot(
-        self,
-        save_id: int,
-        turn_number: int,
-        game_state: Dict[str, Any]
-    ) -> int:
+    def create_snapshot(self, save_id: int, turn_number: int, game_state: Dict[str, Any]) -> int:
         """为存档创建快照
 
         Args:
@@ -271,10 +282,13 @@ class SaveService:
         try:
             snapshot_json = json.dumps(game_state, ensure_ascii=False)
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO save_snapshots (save_id, turn_number, snapshot_data)
                 VALUES (?, ?, ?)
-            """, (save_id, turn_number, snapshot_json))
+            """,
+                (save_id, turn_number, snapshot_json),
+            )
 
             conn.commit()
             return cursor.lastrowid
@@ -295,20 +309,21 @@ class SaveService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, turn_number, created_at
                 FROM save_snapshots
                 WHERE save_id = ?
                 ORDER BY turn_number DESC
-            """, (save_id,))
+            """,
+                (save_id,),
+            )
 
             snapshots = []
             for row in cursor.fetchall():
-                snapshots.append({
-                    "snapshot_id": row[0],
-                    "turn_number": row[1],
-                    "created_at": row[2]
-                })
+                snapshots.append(
+                    {"snapshot_id": row[0], "turn_number": row[1], "created_at": row[2]}
+                )
 
             return snapshots
 
@@ -328,11 +343,14 @@ class SaveService:
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT snapshot_data
                 FROM save_snapshots
                 WHERE id = ?
-            """, (snapshot_id,))
+            """,
+                (snapshot_id,),
+            )
 
             row = cursor.fetchone()
             if not row:
@@ -343,12 +361,7 @@ class SaveService:
         finally:
             conn.close()
 
-    def auto_save(
-        self,
-        user_id: str,
-        game_state: Dict[str, Any],
-        turn_number: int
-    ) -> int:
+    def auto_save(self, user_id: str, game_state: Dict[str, Any], turn_number: int) -> int:
         """自动保存游戏
 
         自动保存不占用存档槽位，保存到独立的 auto_saves 表
@@ -367,10 +380,13 @@ class SaveService:
         try:
             game_state_json = json.dumps(game_state, ensure_ascii=False)
 
-            cursor.execute("""
+            cursor.execute(
+                """
                 INSERT INTO auto_saves (user_id, game_state, turn_number)
                 VALUES (?, ?, ?)
-            """, (user_id, game_state_json, turn_number))
+            """,
+                (user_id, game_state_json, turn_number),
+            )
 
             conn.commit()
             return cursor.lastrowid
@@ -392,13 +408,16 @@ class SaveService:
 
         try:
             # 使用 ID 排序而不是 created_at，因为 ID 是自增的，更可靠
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id, game_state, turn_number, created_at
                 FROM auto_saves
                 WHERE user_id = ?
                 ORDER BY id DESC
                 LIMIT 1
-            """, (user_id,))
+            """,
+                (user_id,),
+            )
 
             row = cursor.fetchone()
             if not row:
@@ -408,7 +427,7 @@ class SaveService:
                 "auto_save_id": row[0],
                 "game_state": json.loads(row[1]),
                 "turn_number": row[2],
-                "created_at": row[3]
+                "created_at": row[3],
             }
 
         finally:
@@ -429,12 +448,15 @@ class SaveService:
 
         try:
             # 获取要保留的 ID（使用 ID 排序）
-            cursor.execute("""
+            cursor.execute(
+                """
                 SELECT id FROM auto_saves
                 WHERE user_id = ?
                 ORDER BY id DESC
                 LIMIT ?
-            """, (user_id, keep_count))
+            """,
+                (user_id, keep_count),
+            )
 
             keep_ids = [row[0] for row in cursor.fetchall()]
 
@@ -442,11 +464,14 @@ class SaveService:
                 return 0
 
             # 删除其他的
-            placeholders = ','.join('?' * len(keep_ids))
-            cursor.execute(f"""
+            placeholders = ",".join("?" * len(keep_ids))
+            cursor.execute(
+                f"""
                 DELETE FROM auto_saves
                 WHERE user_id = ? AND id NOT IN ({placeholders})
-            """, [user_id] + keep_ids)
+            """,
+                [user_id] + keep_ids,
+            )
 
             conn.commit()
             return cursor.rowcount

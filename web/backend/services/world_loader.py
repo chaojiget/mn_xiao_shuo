@@ -6,21 +6,24 @@ WorldPack加载器
 import gzip
 import json
 import sqlite3
-from typing import Optional
 from pathlib import Path
+from typing import Optional
+
+from game.game_tools import (
+    GameMap,
+    GameState,
+    InventoryItem,
+    MapEdge,
+    MapNode,
+    PlayerState,
+)
+from game.game_tools import Quest as GameQuest
+from game.game_tools import QuestObjective as GameQuestObjective
+from game.game_tools import (
+    WorldState,
+)
 
 from models.world_pack import WorldPack
-from game.game_tools import (
-    GameState,
-    PlayerState,
-    WorldState,
-    GameMap,
-    MapNode,
-    MapEdge,
-    Quest as GameQuest,
-    QuestObjective as GameQuestObjective,
-    InventoryItem
-)
 
 
 class WorldLoader:
@@ -34,10 +37,7 @@ class WorldLoader:
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute(
-            "SELECT json_gz FROM worlds WHERE id = ?",
-            (world_id,)
-        )
+        cursor.execute("SELECT json_gz FROM worlds WHERE id = ?", (world_id,))
 
         row = cursor.fetchone()
         conn.close()
@@ -47,7 +47,7 @@ class WorldLoader:
 
         # 解压缩
         json_gz = row[0]
-        json_str = gzip.decompress(json_gz).decode('utf-8')
+        json_str = gzip.decompress(json_gz).decode("utf-8")
         data = json.loads(json_str)
 
         # 反序列化为WorldPack
@@ -82,8 +82,8 @@ class WorldLoader:
                 "updatedAt": int(world_pack.meta.created_at.timestamp() * 1000),
                 "playTime": 0,
                 "worldPackId": world_pack.meta.id,
-                "worldPackTitle": world_pack.meta.title
-            }
+                "worldPackTitle": world_pack.meta.title,
+            },
         )
 
         return state
@@ -102,37 +102,29 @@ class WorldLoader:
                 metadata={
                     "biome": location.biome,
                     "coord": {"x": location.coord.x, "y": location.coord.y},
-                    "pois": [poi.dict() for poi in location.pois]
-                }
+                    "pois": [poi.dict() for poi in location.pois],
+                },
             )
             nodes.append(node)
 
         # 根据坐标创建边（简单策略：相邻地点连接）
         edges = []
         for i, loc1 in enumerate(world_pack.locations):
-            for j, loc2 in enumerate(world_pack.locations[i+1:], start=i+1):
+            for j, loc2 in enumerate(world_pack.locations[i + 1 :], start=i + 1):
                 # 计算距离
                 dx = loc1.coord.x - loc2.coord.x
                 dy = loc1.coord.y - loc2.coord.y
-                distance = (dx*dx + dy*dy) ** 0.5
+                distance = (dx * dx + dy * dy) ** 0.5
 
                 # 距离小于30的地点连接
                 if distance < 30:
-                    edge = MapEdge(
-                        fromNode=loc1.id,
-                        toNode=loc2.id,
-                        bidirectional=True
-                    )
+                    edge = MapEdge(fromNode=loc1.id, toNode=loc2.id, bidirectional=True)
                     edges.append(edge)
 
         # 从第一个地点开始
         current_node_id = world_pack.locations[0].id if world_pack.locations else "start"
 
-        return GameMap(
-            nodes=nodes,
-            edges=edges,
-            currentNodeId=current_node_id
-        )
+        return GameMap(nodes=nodes, edges=edges, currentNodeId=current_node_id)
 
     def _create_initial_player(self, world_pack: WorldPack) -> PlayerState:
         """创建初始玩家"""
@@ -149,11 +141,7 @@ class WorldLoader:
         # 初始背包
         inventory = [
             InventoryItem(
-                id="gold_coin",
-                name="金币",
-                description="通用货币",
-                quantity=money,
-                type="misc"
+                id="gold_coin", name="金币", description="通用货币", quantity=money, type="misc"
             )
         ]
 
@@ -168,7 +156,7 @@ class WorldLoader:
             traits=["冒险者"],
             inventory=inventory,
             location=start_location,
-            money=0  # 金币在背包里
+            money=0,  # 金币在背包里
         )
 
     def _convert_world_state(self, world_pack: WorldPack) -> WorldState:
@@ -184,9 +172,9 @@ class WorldLoader:
                 "world_pack_id": world_pack.meta.id,
                 "world_pack_title": world_pack.meta.title,
                 "world_tone": world_pack.meta.tone,
-                "world_difficulty": world_pack.meta.difficulty
+                "world_difficulty": world_pack.meta.difficulty,
             },
-            theme=world_pack.meta.tone
+            theme=world_pack.meta.tone,
         )
 
     def _convert_quests(self, world_pack: WorldPack) -> list:
@@ -197,12 +185,14 @@ class WorldLoader:
             # 转换目标
             objectives = []
             for obj in quest.objectives:
-                objectives.append(GameQuestObjective(
-                    id=obj.id,
-                    description=obj.text,
-                    completed=obj.done,
-                    required=True  # WorldPack的objective默认都是必需的
-                ))
+                objectives.append(
+                    GameQuestObjective(
+                        id=obj.id,
+                        description=obj.text,
+                        completed=obj.done,
+                        required=True,  # WorldPack的objective默认都是必需的
+                    )
+                )
 
             # 转换为GameQuest
             game_quest = GameQuest(
@@ -216,15 +206,18 @@ class WorldLoader:
                 rewards={
                     "exp": quest.rewards.get("exp", 0) if quest.rewards else 0,
                     "money": quest.rewards.get("gold", 0) if quest.rewards else 0,
-                    "items": quest.rewards.get("items", []) if quest.rewards else []
-                }
+                    "items": quest.rewards.get("items", []) if quest.rewards else [],
+                },
             )
 
             game_quests.append(game_quest)
 
         # 激活主线任务
         for quest in game_quests:
-            if "main" in quest.id.lower() or len([q for q in game_quests if q.status == "active"]) == 0:
+            if (
+                "main" in quest.id.lower()
+                or len([q for q in game_quests if q.status == "active"]) == 0
+            ):
                 quest.status = "active"
                 break
 

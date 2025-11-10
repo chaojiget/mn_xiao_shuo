@@ -2,29 +2,31 @@
 游戏引擎 - 处理游戏回合，集成LLM与工具调用
 """
 
-import json
 import asyncio
+import json
 import logging
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Any, Optional, AsyncIterator
+from typing import Any, AsyncIterator, Dict, List, Optional
+
 from pydantic import BaseModel
 
 # 配置日志
 logging.basicConfig(
     level=logging.DEBUG,
-    format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
-    datefmt='%H:%M:%S'
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+    datefmt="%H:%M:%S",
 )
 logger = logging.getLogger(__name__)
 
-from .game_tools import GameTools, GameState, PlayerState, WorldState, GameMap, RollCheckParams
+from .game_tools import GameMap, GameState, GameTools, PlayerState, RollCheckParams, WorldState
 from .quests import QuestEngine
 
 # 世界系统导入（可选）
 try:
     from ..database.world_db import WorldDatabase
     from ..services.scene_refinement import SceneRefinement
+
     WORLD_SYSTEM_AVAILABLE = True
 except ImportError:
     WORLD_SYSTEM_AVAILABLE = False
@@ -34,12 +36,14 @@ except ImportError:
 
 class GameTurnRequest(BaseModel):
     """游戏回合请求"""
+
     playerInput: str
     currentState: GameState
 
 
 class GameTurnResponse(BaseModel):
     """游戏回合响应"""
+
     narration: str
     actions: List[Dict[str, Any]] = []
     hints: List[str] = []
@@ -50,7 +54,9 @@ class GameTurnResponse(BaseModel):
 class GameEngine:
     """游戏引擎：协调LLM、工具、状态管理"""
 
-    def __init__(self, llm_backend, quest_data_path: Optional[str] = None, db_path: Optional[str] = None):
+    def __init__(
+        self, llm_backend, quest_data_path: Optional[str] = None, db_path: Optional[str] = None
+    ):
         """
         Args:
             llm_backend: LLM后端实例（支持LiteLLM或Claude）
@@ -74,9 +80,9 @@ class GameEngine:
             try:
                 self.world_db = WorldDatabase(db_path)
                 self.scene_refinement = SceneRefinement(llm_backend, self.world_db)
-                print("✅ 世界系统已启用")
+                logger.info("✅ 世界系统已启用")
             except Exception as e:
-                print(f"⚠️  世界系统初始化失败: {e}")
+                logger.error(f"⚠️  世界系统初始化失败: {e}")
                 self.world_db = None
                 self.scene_refinement = None
 
@@ -148,17 +154,21 @@ class GameEngine:
         quests_info = "\n".join([f"  - {q.title}: {q.description}" for q in active_quests[:3]])
 
         # 获取背包详细信息（包含完整物品列表）
-        inventory_info = "\n".join([
-            f"  - {item.name} x{item.quantity} ({item.description if hasattr(item, 'description') and item.description else item.type})"
-            for item in state.player.inventory[:10]
-        ])
+        inventory_info = "\n".join(
+            [
+                f"  - {item.name} x{item.quantity} ({item.description if hasattr(item, 'description') and item.description else item.type})"
+                for item in state.player.inventory[:10]
+            ]
+        )
 
         # 获取近期日志（更多回合，更完整的上下文）
         recent_logs = state.log[-8:] if state.log else []  # 从5条增加到8条
-        logs_info = "\n".join([
-            f"  [{entry.actor}] {entry.text[:100]}..."  # 从50字增加到100字
-            for entry in recent_logs
-        ])
+        logs_info = "\n".join(
+            [
+                f"  [{entry.actor}] {entry.text[:100]}..."  # 从50字增加到100字
+                for entry in recent_logs
+            ]
+        )
 
         # 🔥 关键改进：将"最近发生"放在最前面，强调连贯性
         return f"""
@@ -179,7 +189,9 @@ class GameEngine:
 {inventory_info or "  空"}
 """
 
-    async def _enter_location(self, location_id: str, turn: int, character_state: Dict) -> Dict[str, Any]:
+    async def _enter_location(
+        self, location_id: str, turn: int, character_state: Dict
+    ) -> Dict[str, Any]:
         """
         玩家进入地点时的处理逻辑
 
@@ -193,10 +205,7 @@ class GameEngine:
         """
         if not self.world_db or not self.scene_refinement:
             # 世界系统不可用，返回空结果
-            return {
-                "narrative_text": "",
-                "affordances": []
-            }
+            return {"narrative_text": "", "affordances": []}
 
         try:
             # 1. 获取地点信息
@@ -212,9 +221,9 @@ class GameEngine:
                         "location_id": location_id,
                         "turn": turn,
                         "target_detail_level": 2,
-                        "passes": ["structure", "sensory", "affordance", "cinematic"]
+                        "passes": ["structure", "sensory", "affordance", "cinematic"],
                     },
-                    world_style=self._get_world_style(location)
+                    world_style=self._get_world_style(location),
                 )
 
                 # 3. 更新访问记录
@@ -227,22 +236,21 @@ class GameEngine:
                 # 4. 返回细化结果
                 return {
                     "narrative_text": refine_result.get("narrative_text", ""),
-                    "affordances": refine_result.get("affordances", [])
+                    "affordances": refine_result.get("affordances", []),
                 }
             else:
                 # 已细化过，只重新提取可供性
-                affordance_result = await self.scene_refinement.extract_affordances({
-                    "location_id": location_id,
-                    "character_state": character_state
-                })
+                affordance_result = await self.scene_refinement.extract_affordances(
+                    {"location_id": location_id, "character_state": character_state}
+                )
 
                 return {
                     "narrative_text": "",  # 已访问过，不重复描述
-                    "affordances": affordance_result.get("affordances", [])
+                    "affordances": affordance_result.get("affordances", []),
                 }
 
         except Exception as e:
-            print(f"⚠️  进入地点时出错: {e}")
+            logger.warning(f"⚠️  进入地点时出错: {e}")
             return {"narrative_text": "", "affordances": []}
 
     def _get_world_style(self, location) -> Dict:
@@ -268,7 +276,9 @@ class GameEngine:
 
         # 记录当前游戏状态
         logger.debug(f"🗺️  当前位置: {state.player.location}")
-        logger.debug(f"❤️  玩家状态: HP={state.player.hp}/{state.player.maxHp}, 金币={state.player.money}")
+        logger.debug(
+            f"❤️  玩家状态: HP={state.player.hp}/{state.player.maxHp}, 金币={state.player.money}"
+        )
         logger.debug(f"🎒 背包物品: {len(state.player.inventory)} 件")
         logger.debug(f"⏱️  当前回合: {state.world.time}")
 
@@ -279,13 +289,15 @@ class GameEngine:
         # 构建消息
         messages = [
             {"role": "system", "content": system_prompt},
-            {"role": "user", "content": f"{context_prompt}\n\n玩家行动：{request.playerInput}"}
+            {"role": "user", "content": f"{context_prompt}\n\n玩家行动：{request.playerInput}"},
         ]
 
         # 调用LLM（带工具）
         try:
             # 合并所有消息到一个prompt
-            full_prompt = "\n\n".join([msg["content"] for msg in messages if msg["role"] != "system"])
+            full_prompt = "\n\n".join(
+                [msg["content"] for msg in messages if msg["role"] != "system"]
+            )
             system_msg = next((msg["content"] for msg in messages if msg["role"] == "system"), None)
 
             # 使用generate_structured来获取JSON格式输出
@@ -299,21 +311,23 @@ class GameEngine:
                             "type": "object",
                             "properties": {
                                 "name": {"type": "string"},
-                                "arguments": {"type": "object"}
-                            }
-                        }
+                                "arguments": {"type": "object"},
+                            },
+                        },
                     },
                     "hints": {"type": "array", "items": {"type": "string"}},
-                    "suggestions": {"type": "array", "items": {"type": "string"}}
+                    "suggestions": {"type": "array", "items": {"type": "string"}},
                 },
-                "required": ["narration"]
+                "required": ["narration"],
             }
 
             # 构建包含工具定义的prompt
-            tools_info = "\n\n".join([
-                f"工具: {tool['name']}\n描述: {tool['description']}\n参数: {json.dumps(tool['input_schema'], ensure_ascii=False)}"
-                for tool in GameTools.get_tool_definitions()
-            ])
+            tools_info = "\n\n".join(
+                [
+                    f"工具: {tool['name']}\n描述: {tool['description']}\n参数: {json.dumps(tool['input_schema'], ensure_ascii=False)}"
+                    for tool in GameTools.get_tool_definitions()
+                ]
+            )
 
             enhanced_prompt = f"""{full_prompt}
 
@@ -330,7 +344,9 @@ class GameEngine:
             logger.debug(system_msg[:500] + "..." if len(system_msg) > 500 else system_msg)
             logger.debug("-" * 60)
             logger.debug("📋 USER PROMPT (前500字符):")
-            logger.debug(enhanced_prompt[:500] + "..." if len(enhanced_prompt) > 500 else enhanced_prompt)
+            logger.debug(
+                enhanced_prompt[:500] + "..." if len(enhanced_prompt) > 500 else enhanced_prompt
+            )
             logger.debug("-" * 60)
             logger.debug("📊 RESPONSE SCHEMA:")
             logger.debug(json.dumps(response_schema, indent=2, ensure_ascii=False))
@@ -342,7 +358,7 @@ class GameEngine:
                 schema=response_schema,
                 system=system_msg,
                 temperature=0.7,
-                max_tokens=1000
+                max_tokens=1000,
             )
 
             # ===== 详细日志：LLM 的响应 =====
@@ -378,11 +394,9 @@ class GameEngine:
 
                     logger.debug(f"   ✅ 结果: {result}")
 
-                    executed_actions.append({
-                        "type": tool_name,
-                        "arguments": arguments,
-                        "result": result
-                    })
+                    executed_actions.append(
+                        {"type": tool_name, "arguments": arguments, "result": result}
+                    )
                 else:
                     logger.warning(f"   ⚠️  工具不存在: {tool_name}")
 
@@ -391,13 +405,11 @@ class GameEngine:
 
             # 记录日志
             tools.add_log("player", request.playerInput)
-            tools.add_log("system", narration[:100] + "..." if len(narration) > 100 else narration)
+            tools.add_log("system", narration)  # 🔥 修复：保存完整叙事，不截断
 
             # ========== 任务系统更新 ==========
             quest_events = self.quest_engine.update_quests(
-                state,
-                tools,
-                last_player_input=request.playerInput
+                state, tools, last_player_input=request.playerInput
             )
 
             # 将任务事件作为单独的区块展示
@@ -431,15 +443,18 @@ class GameEngine:
                 try:
                     # 构建角色状态
                     character_state = {
-                        "attributes": {attr: getattr(state.player, attr, 0) for attr in ["hp", "stamina", "money"]},
-                        "inventory": [item.id for item in state.player.inventory]
+                        "attributes": {
+                            attr: getattr(state.player, attr, 0)
+                            for attr in ["hp", "stamina", "money"]
+                        },
+                        "inventory": [item.id for item in state.player.inventory],
                     }
 
                     # 调用进入地点逻辑
                     enter_result = await self._enter_location(
                         location_id=new_location,
                         turn=state.world.time,
-                        character_state=character_state
+                        character_state=character_state,
                     )
 
                     # 如果有细化文本，追加到叙事中
@@ -453,13 +468,13 @@ class GameEngine:
                     if enter_result.get("affordances"):
                         for aff in enter_result["affordances"][:5]:  # 最多5个
                             chip = f"{aff.get('verb', '')}{aff.get('object', '')}"
-                            if aff.get('risk'):
+                            if aff.get("risk"):
                                 chip += " ⚠️"
                             suggestions.append(chip)
 
                 except Exception as e:
                     logger.error(f"⚠️  世界系统集成出错: {e}")
-                    print(f"⚠️  世界系统集成出错: {e}")
+                    logger.warning(f"⚠️  世界系统集成出错: {e}")
 
             # 最终响应日志
             final_response = GameTurnResponse(
@@ -471,12 +486,16 @@ class GameEngine:
                     "turn": state.world.time,
                     "toolCallsCount": len(tool_calls),
                     "activeQuests": len([q for q in state.quests if q.status == "active"]),
-                    "questEvents": quest_events  # 添加任务事件到元数据
-                }
+                    "questEvents": quest_events,  # 添加任务事件到元数据
+                },
             )
 
             logger.info(f"🎬 回合完成 (第 {state.world.time} 回合)")
-            logger.info(f"📜 旁白前100字: {narration[:100]}..." if len(narration) > 100 else f"📜 旁白: {narration}")
+            logger.info(
+                f"📜 旁白前100字: {narration[:100]}..."
+                if len(narration) > 100
+                else f"📜 旁白: {narration}"
+            )
             logger.info("=" * 80)
 
             return final_response
@@ -489,33 +508,38 @@ class GameEngine:
                 narration=f"[系统错误] 无法处理你的行动。请重试。(错误: {str(e)})",
                 actions=[],
                 hints=["尝试换一种说法"],
-                suggestions=["查看背包", "查看任务", "环顾四周"]
+                suggestions=["查看背包", "查看任务", "环顾四周"],
             )
 
-    async def process_turn_stream(
-        self,
-        request: GameTurnRequest
-    ) -> AsyncIterator[Dict[str, Any]]:
-        """处理游戏回合（流式） - 简化版本"""
+    async def process_turn_stream(self, request: GameTurnRequest) -> AsyncIterator[Dict[str, Any]]:
+        """处理游戏回合（流式） - 增强版本，支持工具调用可视化"""
         try:
             # 使用非流式处理，然后逐句发送
             response = await self.process_turn(request)
 
-            # 将旁白按句子分割
+            # 🔥 先发送工具调用事件（如果有）
+            if response.actions:
+                for action in response.actions:
+                    # 解析 action 字典，提取工具名称和参数
+                    # action 格式: {"type": "tool_name", "arguments": {...}, "result": ...}
+                    tool_name = action.get("type", "unknown_tool")
+                    tool_args = action.get("arguments", {})
+
+                    # 发送工具调用开始事件
+                    yield {"type": "tool_call", "tool": tool_name, "input": tool_args}
+
+                    # 发送工具调用结果事件
+                    yield {
+                        "type": "tool_result",
+                        "tool": tool_name,
+                        "output": action.get("result", "执行成功"),
+                    }
+
+            # 将旁白按句子分割，逐句流式发送
             sentences = response.narration.split("。")
             for sentence in sentences:
                 if sentence.strip():
-                    yield {
-                        "type": "text",
-                        "content": sentence + "。"
-                    }
-
-            # 发送actions
-            for action in response.actions:
-                yield {
-                    "type": "action",
-                    "action": action
-                }
+                    yield {"type": "text", "content": sentence + "。"}
 
             # 发送完成信号
             yield {
@@ -523,15 +547,13 @@ class GameEngine:
                 "metadata": {
                     "hints": response.hints,
                     "suggestions": response.suggestions,
-                    "turn": request.currentState.world.time
-                }
+                    "turn": request.currentState.world.time,
+                    "tool_calls_count": len(response.actions) if response.actions else 0,
+                },
             }
 
         except Exception as e:
-            yield {
-                "type": "error",
-                "error": str(e)
-            }
+            yield {"type": "error", "error": str(e)}
 
     def init_game(self, story_id: Optional[str] = None) -> GameState:
         """初始化游戏状态"""
@@ -543,14 +565,14 @@ class GameEngine:
                     "name": "起点",
                     "shortDesc": "一片空旷的广场",
                     "discovered": True,
-                    "locked": False
+                    "locked": False,
                 },
                 {
                     "id": "forest",
                     "name": "迷雾森林",
                     "shortDesc": "笼罩在迷雾中的神秘森林",
                     "discovered": False,
-                    "locked": False
+                    "locked": False,
                 },
                 {
                     "id": "cave",
@@ -558,14 +580,14 @@ class GameEngine:
                     "shortDesc": "散发着诡异气息的洞穴入口",
                     "discovered": False,
                     "locked": True,
-                    "keyRequired": "cave_key"
-                }
+                    "keyRequired": "cave_key",
+                },
             ],
             edges=[
                 {"from": "start", "to": "forest", "bidirectional": True},
-                {"from": "forest", "to": "cave", "bidirectional": True}
+                {"from": "forest", "to": "cave", "bidirectional": True},
             ],
-            currentNodeId="start"
+            currentNodeId="start",
         )
 
         # 创建初始玩家
@@ -583,29 +605,30 @@ class GameEngine:
                     name="金币",
                     description="闪闪发光的金币，可以用于交易或吸引注意力",
                     quantity=50,
-                    type="misc"
+                    type="misc",
                 )
             ],
             location="start",
-            money=0  # 金币现在在背包中
+            money=0,  # 金币现在在背包中
         )
 
         # 创建初始世界
-        world = WorldState(
-            time=0,
-            flags={},
-            discoveredLocations=["start"],
-            variables={}
-        )
+        world = WorldState(time=0, flags={}, discoveredLocations=["start"], variables={})
+
+        # 🔥 生成唯一的 session_id
+        import uuid
+
+        session_id = f"game_{uuid.uuid4().hex[:16]}"
 
         # 创建初始状态
         state = GameState(
             version="1.0.0",
+            session_id=session_id,  # 👈 设置 session_id
             player=player,
             world=world,
             quests=[],
             map=game_map,
-            log=[]
+            log=[],
         )
 
         return state

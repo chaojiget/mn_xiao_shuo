@@ -5,11 +5,12 @@
 """
 
 import json
-import sqlite3
-from typing import Optional, Dict, Any, List, Tuple
-from pathlib import Path
-from langgraph.store.base import BaseStore, Item
 import logging
+import sqlite3
+from pathlib import Path
+from typing import Any, Dict, List, Optional, Tuple
+
+from langgraph.store.base import BaseStore, Item
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +51,8 @@ class SqliteStore(BaseStore):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE TABLE IF NOT EXISTS store_items (
                 namespace TEXT NOT NULL,
                 key TEXT NOT NULL,
@@ -59,13 +61,16 @@ class SqliteStore(BaseStore):
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (namespace, key)
             )
-        """)
+        """
+        )
 
         # 创建索引加速查询
-        cursor.execute("""
+        cursor.execute(
+            """
             CREATE INDEX IF NOT EXISTS idx_namespace
             ON store_items(namespace)
-        """)
+        """
+        )
 
         conn.commit()
         conn.close()
@@ -81,12 +86,7 @@ class SqliteStore(BaseStore):
         """
         return ":".join(namespace)
 
-    def put(
-        self,
-        namespace: Tuple[str, ...],
-        key: str,
-        value: Dict[str, Any]
-    ) -> None:
+    def put(self, namespace: Tuple[str, ...], key: str, value: Dict[str, Any]) -> None:
         """保存数据到 store
 
         Args:
@@ -103,24 +103,23 @@ class SqliteStore(BaseStore):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             INSERT INTO store_items (namespace, key, value, updated_at)
             VALUES (?, ?, ?, CURRENT_TIMESTAMP)
             ON CONFLICT(namespace, key) DO UPDATE SET
                 value = excluded.value,
                 updated_at = CURRENT_TIMESTAMP
-        """, (namespace_str, key, value_json))
+        """,
+            (namespace_str, key, value_json),
+        )
 
         conn.commit()
         conn.close()
 
         logger.debug(f"📝 Store.put: {namespace_str}/{key}")
 
-    def get(
-        self,
-        namespace: Tuple[str, ...],
-        key: str
-    ) -> Optional[Item]:
+    def get(self, namespace: Tuple[str, ...], key: str) -> Optional[Item]:
         """获取数据
 
         Args:
@@ -133,18 +132,21 @@ class SqliteStore(BaseStore):
         示例：
             item = store.get(("users",), "user_123")
             if item:
-                print(item.value)  # {"name": "John", "age": 30}
+                logger.info(item.value)  # {"name": "John", "age": 30}
         """
         namespace_str = self._namespace_to_str(namespace)
 
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT value, created_at, updated_at
             FROM store_items
             WHERE namespace = ? AND key = ?
-        """, (namespace_str, key))
+        """,
+            (namespace_str, key),
+        )
 
         row = cursor.fetchone()
         conn.close()
@@ -154,21 +156,13 @@ class SqliteStore(BaseStore):
             logger.debug(f"📖 Store.get: {namespace_str}/{key} -> found")
 
             return Item(
-                value=value,
-                key=key,
-                namespace=namespace,
-                created_at=row[1],
-                updated_at=row[2]
+                value=value, key=key, namespace=namespace, created_at=row[1], updated_at=row[2]
             )
         else:
             logger.debug(f"📖 Store.get: {namespace_str}/{key} -> not found")
             return None
 
-    def delete(
-        self,
-        namespace: Tuple[str, ...],
-        key: str
-    ) -> None:
+    def delete(self, namespace: Tuple[str, ...], key: str) -> None:
         """删除数据
 
         Args:
@@ -180,20 +174,20 @@ class SqliteStore(BaseStore):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             DELETE FROM store_items
             WHERE namespace = ? AND key = ?
-        """, (namespace_str, key))
+        """,
+            (namespace_str, key),
+        )
 
         conn.commit()
         conn.close()
 
         logger.debug(f"🗑️  Store.delete: {namespace_str}/{key}")
 
-    def search(
-        self,
-        namespace: Tuple[str, ...]
-    ) -> List[Item]:
+    def search(self, namespace: Tuple[str, ...]) -> List[Item]:
         """搜索命名空间下的所有数据
 
         Args:
@@ -205,7 +199,7 @@ class SqliteStore(BaseStore):
         示例：
             items = store.search(("users",))
             for item in items:
-                print(f"{item.key}: {item.value}")
+                logger.info(f"{item.key}: {item.value}")
         """
         namespace_str = self._namespace_to_str(namespace)
 
@@ -213,25 +207,30 @@ class SqliteStore(BaseStore):
         cursor = conn.cursor()
 
         # 支持前缀匹配（如果 namespace 是 ("users",)，匹配 "users" 和 "users:*"）
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT key, value, created_at, updated_at
             FROM store_items
             WHERE namespace = ? OR namespace LIKE ?
             ORDER BY created_at DESC
-        """, (namespace_str, f"{namespace_str}:%"))
+        """,
+            (namespace_str, f"{namespace_str}:%"),
+        )
 
         rows = cursor.fetchall()
         conn.close()
 
         items = []
         for row in rows:
-            items.append(Item(
-                key=row[0],
-                value=json.loads(row[1]),
-                namespace=namespace,
-                created_at=row[2],
-                updated_at=row[3]
-            ))
+            items.append(
+                Item(
+                    key=row[0],
+                    value=json.loads(row[1]),
+                    namespace=namespace,
+                    created_at=row[2],
+                    updated_at=row[3],
+                )
+            )
 
         logger.debug(f"🔍 Store.search: {namespace_str} -> {len(items)} items")
         return items
@@ -245,11 +244,13 @@ class SqliteStore(BaseStore):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT DISTINCT namespace
             FROM store_items
             ORDER BY namespace
-        """)
+        """
+        )
 
         rows = cursor.fetchall()
         conn.close()
@@ -271,10 +272,13 @@ class SqliteStore(BaseStore):
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
-        cursor.execute("""
+        cursor.execute(
+            """
             DELETE FROM store_items
             WHERE namespace = ? OR namespace LIKE ?
-        """, (namespace_str, f"{namespace_str}:%"))
+        """,
+            (namespace_str, f"{namespace_str}:%"),
+        )
 
         deleted_count = cursor.rowcount
         conn.commit()
@@ -297,12 +301,14 @@ class SqliteStore(BaseStore):
         total_items = cursor.fetchone()[0]
 
         # 各命名空间的记录数
-        cursor.execute("""
+        cursor.execute(
+            """
             SELECT namespace, COUNT(*) as count
             FROM store_items
             GROUP BY namespace
             ORDER BY count DESC
-        """)
+        """
+        )
         namespace_counts = {row[0]: row[1] for row in cursor.fetchall()}
 
         # 数据库大小（页数 * 页大小）
@@ -318,5 +324,5 @@ class SqliteStore(BaseStore):
             "total_items": total_items,
             "namespace_counts": namespace_counts,
             "db_size_bytes": db_size_bytes,
-            "db_size_mb": round(db_size_bytes / 1024 / 1024, 2)
+            "db_size_mb": round(db_size_bytes / 1024 / 1024, 2),
         }

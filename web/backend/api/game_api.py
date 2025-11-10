@@ -2,17 +2,19 @@
 游戏API路由 - 处理游戏回合、状态管理
 """
 
+import asyncio
+import json
+from typing import Any, Dict, List, Optional
+
 from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
-from pydantic import BaseModel
-from typing import Optional, Dict, Any, List
-import json
-import asyncio
-
 from game.game_engine import GameEngine, GameTurnRequest, GameTurnResponse
 from game.game_tools import GameState
+from pydantic import BaseModel
 from services.save_service import SaveService
+from utils.logger import get_logger
 
+logger = get_logger(__name__)
 router = APIRouter(prefix="/api/game", tags=["game"])
 
 # 全局游戏引擎实例（在启动时注入LLM客户端）
@@ -74,8 +76,9 @@ async def init_game(request: InitGameRequest):
     try:
         # 如果提供了worldId，从WorldPack加载
         if request.worldId:
-            from services.world_loader import WorldLoader
             from pathlib import Path
+
+            from services.world_loader import WorldLoader
 
             # 获取数据库路径
             project_root = Path(__file__).parent.parent.parent.parent
@@ -141,15 +144,15 @@ async def process_turn(request: GameTurnRequestModel):
 
     try:
         # 打印调试信息
-        print(f"[DEBUG] 收到请求: playerInput={request.playerInput}")
-        print(f"[DEBUG] currentState keys: {request.currentState.keys() if isinstance(request.currentState, dict) else 'not dict'}")
+        logger.debug(f"[DEBUG] 收到请求: playerInput={request.playerInput}")
+        logger.debug(f"[DEBUG] currentState keys: {request.currentState.keys() if isinstance(request.currentState, dict) else 'not dict'}")
 
         # 将dict转换为GameState
         try:
             state = GameState(**request.currentState)
-            print(f"[DEBUG] GameState created successfully")
+            logger.debug(f"[DEBUG] GameState created successfully")
         except Exception as e:
-            print(f"[ERROR] 创建GameState失败: {e}")
+            logger.error(f"[ERROR] 创建GameState失败: {e}")
             import traceback
             traceback.print_exc()
             raise
@@ -158,10 +161,10 @@ async def process_turn(request: GameTurnRequestModel):
             playerInput=request.playerInput,
             currentState=state
         )
-        print(f"[DEBUG] TurnRequest created")
+        logger.debug(f"[DEBUG] TurnRequest created")
 
         response = await game_engine.process_turn(turn_request)
-        print(f"[DEBUG] Turn processed successfully")
+        logger.debug(f"[DEBUG] Turn processed successfully")
 
         # 自动保存游戏状态到数据库
         if save_service:
@@ -173,9 +176,9 @@ async def process_turn(request: GameTurnRequestModel):
                     game_state=state.model_dump(),
                     auto_save=True
                 )
-                print(f"[DEBUG] 💾 自动保存成功: auto_save_id={auto_save_id}")
+                logger.debug(f"[DEBUG] 💾 自动保存成功: auto_save_id={auto_save_id}")
             except Exception as e:
-                print(f"[WARNING] 自动保存失败: {e}")
+                logger.error(f"[WARNING] 自动保存失败: {e}")
                 # 不阻断游戏流程
 
         return {
@@ -189,7 +192,7 @@ async def process_turn(request: GameTurnRequestModel):
         }
 
     except Exception as e:
-        print(f"[ERROR] 处理回合失败: {e}")
+        logger.error(f"[ERROR] 处理回合失败: {e}")
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"处理回合失败: {str(e)}")

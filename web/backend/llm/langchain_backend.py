@@ -3,13 +3,19 @@ LangChain 后端实现 (通过 OpenRouter)
 从 LiteLLM + Claude Agent SDK 迁移到 LangChain 1.0
 """
 
-from langchain_openai import ChatOpenAI
-from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
-from typing import Dict, List, Any, Optional, AsyncIterator
-import os
+import asyncio
 import json
+import os
+from typing import Any, AsyncIterator, Dict, List, Optional
 
-from .base import LLMBackend, LLMMessage, LLMTool, LLMResponse
+from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
+from langchain_openai import ChatOpenAI
+
+from utils.logger import get_logger
+
+from .base import LLMBackend, LLMMessage, LLMResponse, LLMTool
+
+logger = get_logger(__name__)
 
 
 class LangChainBackend(LLMBackend):
@@ -50,11 +56,18 @@ class LangChainBackend(LLMBackend):
             "claude-sonnet": "anthropic/claude-3.5-sonnet",
             "claude-haiku": "anthropic/claude-3-haiku",
             "gpt-4": "openai/gpt-4-turbo",
-            "qwen": "qwen/qwen-2.5-72b-instruct"
+            "qwen": "qwen/qwen-2.5-72b-instruct",
+            "kimi": "deepseek/deepseek-v3.1-terminus",
         }
 
         # 获取模型名称
-        model_key = self.config.get("model", os.getenv("DEFAULT_MODEL", "deepseek"))
+        default_model = os.getenv("DEFAULT_MODEL")
+        if not default_model:
+            logger.warning(
+                "⚠️  警告: DEFAULT_MODEL 环境变量未设置，使用 fallback: deepseek/deepseek-v3.1-terminus"
+            )
+            default_model = "deepseek/deepseek-v3.1-terminus"
+        model_key = self.config.get("model", default_model)
         model_name = self.model_map.get(model_key, model_key)
 
         # 初始化 ChatOpenAI (OpenRouter)
@@ -64,10 +77,10 @@ class LangChainBackend(LLMBackend):
             api_key=os.getenv("OPENROUTER_API_KEY"),
             temperature=self.config.get("temperature", 0.7),
             max_tokens=self.config.get("max_tokens", 4096),
-            streaming=self.config.get("streaming", True)
+            streaming=self.config.get("streaming", True),
         )
 
-        print(f"[LangChainBackend] 初始化完成，模型: {model_name}")
+        logger.info(f"[LangChainBackend] 初始化完成，模型: {model_name}")
 
     async def generate(
         self,
@@ -75,7 +88,7 @@ class LangChainBackend(LLMBackend):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> LLMResponse:
         """
         生成文本响应
@@ -94,10 +107,7 @@ class LangChainBackend(LLMBackend):
         lc_messages = self._convert_messages(messages)
 
         # 配置模型
-        model = self.model.with_config(
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        model = self.model.with_config(temperature=temperature, max_tokens=max_tokens)
 
         # 如果提供了工具,绑定工具
         if tools:
@@ -113,20 +123,14 @@ class LangChainBackend(LLMBackend):
 
         if hasattr(response, "tool_calls") and response.tool_calls:
             tool_calls = [
-                {
-                    "name": tc.get("name"),
-                    "arguments": tc.get("args", {})
-                }
+                {"name": tc.get("name"), "arguments": tc.get("args", {})}
                 for tc in response.tool_calls
             ]
 
         return LLMResponse(
             content=content,
             tool_calls=tool_calls,
-            metadata={
-                "model": self.model.model_name,
-                "backend": "LangChain"
-            }
+            metadata={"model": self.model.model_name, "backend": "LangChain"},
         )
 
     async def generate_structured(
@@ -137,7 +141,7 @@ class LangChainBackend(LLMBackend):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        **kwargs,
     ) -> Dict[str, Any]:
         """
         生成结构化 JSON 输出
@@ -172,10 +176,7 @@ class LangChainBackend(LLMBackend):
         messages.append(HumanMessage(content=combined_prompt))
 
         # 调用模型
-        model = self.model.with_config(
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+        model = self.model.with_config(temperature=temperature, max_tokens=max_tokens)
         response = await model.ainvoke(messages)
 
         # 解析 JSON
@@ -200,39 +201,57 @@ class LangChainBackend(LLMBackend):
         tools: Optional[List[LLMTool]] = None,
         temperature: float = 0.7,
         max_tokens: int = 1000,
-        **kwargs
+        cancel_event: Optional[asyncio.Event] = None,
+        **kwargs,
     ) -> AsyncIterator[str]:
         """
-        流式生成文本
+        流式生成文本（支持取消和错误处理）
 
         Args:
             messages: 消息列表
             tools: 可用工具列表
             temperature: 温度参数
             max_tokens: 最大token数
+            cancel_event: 取消事件（设置后将停止生成）
             **kwargs: 其他参数
 
         Yields:
             str: 文本片段
+
+        Raises:
+            asyncio.CancelledError: 生成被取消
+            Exception: 其他错误
         """
-        # 转换消息格式
-        lc_messages = self._convert_messages(messages)
+        try:
+            # 转换消息格式
+            lc_messages = self._convert_messages(messages)
 
-        # 配置模型
-        model = self.model.with_config(
-            temperature=temperature,
-            max_tokens=max_tokens
-        )
+            # 配置模型
+            model = self.model.with_config(temperature=temperature, max_tokens=max_tokens)
 
-        # 如果提供了工具,绑定工具
-        if tools:
-            lc_tools = self._convert_tools(tools)
-            model = model.bind_tools(lc_tools)
+            # 如果提供了工具,绑定工具
+            if tools:
+                lc_tools = self._convert_tools(tools)
+                model = model.bind_tools(lc_tools)
 
-        # 流式调用
-        async for chunk in model.astream(lc_messages):
-            if hasattr(chunk, "content") and chunk.content:
-                yield chunk.content
+            # 流式调用
+            async for chunk in model.astream(lc_messages):
+                # 检查取消事件
+                if cancel_event and cancel_event.is_set():
+                    logger.info("[LangChainBackend] 流式生成已取消")
+                    raise asyncio.CancelledError("流式生成被用户取消")
+
+                if hasattr(chunk, "content") and chunk.content:
+                    yield chunk.content
+
+        except asyncio.CancelledError:
+            logger.info("[LangChainBackend] 流式生成被取消")
+            raise
+
+        except Exception as e:
+            logger.error(f"[LangChainBackend] 流式生成错误: {str(e)}")
+            # 重新抛出异常，让调用者处理
+            raise
 
     def _convert_messages(self, messages: List[LLMMessage]) -> List:
         """转换消息格式"""
@@ -251,14 +270,16 @@ class LangChainBackend(LLMBackend):
         # LangChain 期望的工具格式
         lc_tools = []
         for tool in tools:
-            lc_tools.append({
-                "type": "function",
-                "function": {
-                    "name": tool.name,
-                    "description": tool.description,
-                    "parameters": tool.input_schema
+            lc_tools.append(
+                {
+                    "type": "function",
+                    "function": {
+                        "name": tool.name,
+                        "description": tool.description,
+                        "parameters": tool.input_schema,
+                    },
                 }
-            })
+            )
         return lc_tools
 
     def get_model_name(self) -> str:
@@ -273,5 +294,5 @@ class LangChainBackend(LLMBackend):
             "provider": "OpenRouter",
             "supports_streaming": True,
             "supports_tools": True,
-            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1")
+            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
         }

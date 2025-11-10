@@ -26,7 +26,6 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
         # ANTHROPIC_BASE_URL=http://0.0.0.0:4000
         # ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
         # ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
-
         # 确保环境变量已设置（如果未设置则使用默认值）
         if not os.getenv("ANTHROPIC_BASE_URL"):
             os.environ["ANTHROPIC_BASE_URL"] = "http://localhost:4000"
@@ -35,10 +34,14 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
             master_key = os.getenv("LITELLM_MASTER_KEY", "sk-litellm-default")
             os.environ["ANTHROPIC_AUTH_TOKEN"] = master_key
         if not os.getenv("ANTHROPIC_MODEL"):
-            os.environ["ANTHROPIC_MODEL"] = "openrouter/deepseek/deepseek-v3.1-terminus-v3-0324"
+            # 从 DEFAULT_MODEL 环境变量读取（已包含 provider/ 前缀）
+            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+            # DEFAULT_MODEL 格式: "provider/model" (如 deepseek/deepseek-v3.1-terminus)
+            # ANTHROPIC_MODEL 需要格式: "openrouter/provider/model"
+            os.environ["ANTHROPIC_MODEL"] = f"openrouter/{default_model}"
 
         # 动态导入 Claude Agent SDK
-        from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock
+        from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
         # 构建提示词
         type_guide = {
@@ -46,14 +49,14 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
                 "name": "科幻",
                 "elements": "星际旅行、高科技、外星文明、人工智能、太空探索",
                 "protagonist_roles": "飞行员、科学家、军官、赏金猎人、殖民者",
-                "world_aspects": "时间设定、科技水平、星际格局、主要势力、核心冲突"
+                "world_aspects": "时间设定、科技水平、星际格局、主要势力、核心冲突",
             },
             "xianxia": {
                 "name": "玄幻/仙侠",
                 "elements": "修炼体系、门派势力、灵兽法宝、秘境宝藏、天道轮回",
                 "protagonist_roles": "修仙者、散修、宗门弟子、魔道修士、炼器师",
-                "world_aspects": "修炼等级、门派势力、地理格局、修炼资源、天道规则"
-            }
+                "world_aspects": "修炼等级、门派势力、地理格局、修炼资源、天道规则",
+            },
         }
 
         guide = type_guide.get(novel_type, type_guide["scifi"])
@@ -162,7 +165,7 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
                         "role": data["protagonist"]["role"],
                         "personality": data["protagonist"]["personality"],
                         "background": data["protagonist"]["background"],
-                        "abilities": data["protagonist"].get("abilities", [])
+                        "abilities": data["protagonist"].get("abilities", []),
                     },
                     "npcs": [
                         {
@@ -170,17 +173,17 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
                             "name": npc["name"],
                             "role": npc["role"],
                             "personality": npc["personality"],
-                            "background": npc["background"]
+                            "background": npc["background"],
                         }
                         for npc in data["npcs"]
-                    ]
-                }
+                    ],
+                },
             }
         except json.JSONDecodeError as e:
             return {
                 "success": False,
                 "error": f"无法解析生成的 JSON: {str(e)}",
-                "raw_response": content
+                "raw_response": content,
             }
 
     except ImportError:
@@ -188,14 +191,11 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
         return {
             "success": False,
             "error": "Claude Agent SDK 未安装,请运行: pip install claude-agent-sdk",
-            "fallback": "使用 LiteLLM 降级模式"
+            "fallback": "使用 LiteLLM 降级模式",
         }
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": f"生成失败: {str(e)}"
-        }
+        return {"success": False, "error": f"生成失败: {str(e)}"}
 
 
 # 示例：创建自定义工具用于小说生成
@@ -208,12 +208,9 @@ def create_novel_generation_tools():
     - 生成角色名称
     - 检查设定一致性
     """
-    from claude_agent_sdk import tool, create_sdk_mcp_server
+    from claude_agent_sdk import create_sdk_mcp_server, tool
 
-    @tool("generate_character_name", "生成符合类型的角色名称", {
-        "novel_type": str,
-        "role": str
-    })
+    @tool("generate_character_name", "生成符合类型的角色名称", {"novel_type": str, "role": str})
     async def generate_character_name(args):
         """根据小说类型和角色定位生成名称"""
         novel_type = args.get("novel_type", "scifi")
@@ -223,29 +220,25 @@ def create_novel_generation_tools():
         scifi_names = {
             "protagonist": ["艾伦·克拉克", "莎拉·陈", "马克斯·雷诺"],
             "scientist": ["维克多·李", "艾米莉亚·沃森", "林晨"],
-            "military": ["詹姆斯·哈里斯", "卡拉·桑切斯", "赵军"]
+            "military": ["詹姆斯·哈里斯", "卡拉·桑切斯", "赵军"],
         }
 
         xianxia_names = {
             "protagonist": ["林风", "叶尘", "萧炎"],
             "master": ["玄机真人", "太虚老祖", "云中子"],
-            "companion": ["苏灵儿", "青衣", "剑心"]
+            "companion": ["苏灵儿", "青衣", "剑心"],
         }
 
         names = scifi_names if novel_type == "scifi" else xianxia_names
         import random
+
         name = random.choice(names.get(role, ["未命名"]))
 
-        return {
-            "content": [
-                {"type": "text", "text": f"生成的角色名称: {name}"}
-            ]
-        }
+        return {"content": [{"type": "text", "text": f"生成的角色名称: {name}"}]}
 
-    @tool("check_consistency", "检查设定一致性", {
-        "world_setting": str,
-        "character_description": str
-    })
+    @tool(
+        "check_consistency", "检查设定一致性", {"world_setting": str, "character_description": str}
+    )
     async def check_consistency(args):
         """检查角色设定是否与世界观一致"""
         # 简单的一致性检查（实际可以用 LLM 分析）
@@ -259,28 +252,32 @@ def create_novel_generation_tools():
         is_consistent = True
         issues = []
 
-        if any(k in world for k in scifi_keywords) and any(k in character for k in xianxia_keywords):
+        if any(k in world for k in scifi_keywords) and any(
+            k in character for k in xianxia_keywords
+        ):
             is_consistent = False
             issues.append("科幻世界观与修仙角色设定冲突")
 
-        if any(k in world for k in xianxia_keywords) and any(k in character for k in scifi_keywords):
+        if any(k in world for k in xianxia_keywords) and any(
+            k in character for k in scifi_keywords
+        ):
             is_consistent = False
             issues.append("修仙世界观与科技角色设定冲突")
 
         return {
             "content": [
-                {"type": "text", "text": json.dumps({
-                    "is_consistent": is_consistent,
-                    "issues": issues
-                }, ensure_ascii=False)}
+                {
+                    "type": "text",
+                    "text": json.dumps(
+                        {"is_consistent": is_consistent, "issues": issues}, ensure_ascii=False
+                    ),
+                }
             ]
         }
 
     # 创建 MCP Server
     server = create_sdk_mcp_server(
-        name="novel-tools",
-        version="1.0.0",
-        tools=[generate_character_name, check_consistency]
+        name="novel-tools", version="1.0.0", tools=[generate_character_name, check_consistency]
     )
 
     return server
@@ -292,7 +289,7 @@ async def generate_with_custom_tools(title: str, novel_type: str, user_prompt: s
     使用自定义工具增强的 Agent 生成
     """
     try:
-        from claude_agent_sdk import query, ClaudeAgentOptions, AssistantMessage, TextBlock
+        from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query
 
         # 创建自定义工具
         novel_tools = create_novel_generation_tools()
@@ -304,8 +301,8 @@ async def generate_with_custom_tools(title: str, novel_type: str, user_prompt: s
             mcp_servers={"novel_tools": novel_tools},
             allowed_tools=[
                 "mcp__novel_tools__generate_character_name",
-                "mcp__novel_tools__check_consistency"
-            ]
+                "mcp__novel_tools__check_consistency",
+            ],
         )
 
         prompt = f"""为小说《{title}》（类型：{novel_type}）生成完整设定。
@@ -329,14 +326,7 @@ async def generate_with_custom_tools(title: str, novel_type: str, user_prompt: s
         # 解析并返回结果
         # ... (与前面相同的解析逻辑)
 
-        return {
-            "success": True,
-            "message": "使用自定义工具生成成功",
-            "response": full_response
-        }
+        return {"success": True, "message": "使用自定义工具生成成功", "response": full_response}
 
     except Exception as e:
-        return {
-            "success": False,
-            "error": str(e)
-        }
+        return {"success": False, "error": str(e)}

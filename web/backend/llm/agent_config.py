@@ -11,9 +11,13 @@ Agent 配置加载器
 """
 
 import os
-import yaml
 from pathlib import Path
-from typing import Dict, Any, Optional
+from typing import Any, Dict, Optional
+
+import yaml
+from utils.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class AgentConfigLoader:
@@ -38,8 +42,8 @@ class AgentConfigLoader:
         config_file = Path(self.config_path)
 
         if not config_file.exists():
-            print(f"[WARNING] Agent配置文件不存在: {self.config_path}")
-            print("[INFO] 返回空配置")
+            logger.warning(f"[WARNING] Agent配置文件不存在: {self.config_path}")
+            logger.info("[INFO] 返回空配置")
             return {"global": {}, "agents": {}}
 
         with open(config_file, "r", encoding="utf-8") as f:
@@ -78,8 +82,8 @@ class AgentConfigLoader:
         agent_config = agents.get(agent_name)
 
         if not agent_config:
-            print(f"[WARNING] 未找到 Agent 配置: {agent_name}")
-            print(f"[INFO] 可用的 Agent: {list(agents.keys())}")
+            logger.warning(f"[WARNING] 未找到 Agent 配置: {agent_name}")
+            logger.info(f"[INFO] 可用的 Agent: {list(agents.keys())}")
             # 返回默认配置
             return {
                 "backend": "litellm",
@@ -109,25 +113,25 @@ class AgentConfigLoader:
         """打印 Agent 配置摘要"""
         config = self.get_agent_config(agent_name)
 
-        print(f"\n{'='*60}")
-        print(f"Agent 配置: {agent_name}")
-        print(f"{'='*60}")
-        print(f"后端: {config.get('backend', 'unknown')}")
-        print(f"模型: {config.get('model', 'unknown')}")
-        print(f"温度: {config.get('temperature', 0.7)}")
-        print(f"最大Token: {config.get('max_tokens', 2000)}")
+        logger.info(f"\n{'='*60}")
+        logger.info(f"Agent 配置: {agent_name}")
+        logger.info(f"{'='*60}")
+        logger.info(f"后端: {config.get('backend', 'unknown')}")
+        logger.info(f"模型: {config.get('model', 'unknown')}")
+        logger.info(f"温度: {config.get('temperature', 0.7)}")
+        logger.info(f"最大Token: {config.get('max_tokens', 2000)}")
 
         if config.get("use_litellm_proxy"):
-            print(f"使用代理: {config.get('litellm_base_url', 'unknown')}")
+            logger.info(f"使用代理: {config.get('litellm_base_url', 'unknown')}")
 
         allowed_tools = config.get("allowed_tools", [])
-        print(f"允许的工具: {', '.join(allowed_tools) if allowed_tools else '无'}")
+        logger.info(f"允许的工具: {', '.join(allowed_tools) if allowed_tools else '无'}")
 
         system_prompt = config.get("system_prompt", "")
         if system_prompt:
-            print(f"系统提示词: {system_prompt[:80]}...")
+            logger.info(f"系统提示词: {system_prompt[:80]}...")
 
-        print(f"{'='*60}\n")
+        logger.info(f"{'='*60}\n")
 
 
 def create_backend_from_agent_config(agent_config: Dict[str, Any]):

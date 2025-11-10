@@ -4,21 +4,24 @@ Phase 2 - NPC 系统实现
 定义 NPC 相关的数据结构：NPC, NPCPersonality, NPCMemory
 """
 
-from pydantic import BaseModel, Field
-from typing import List, Dict, Any, Optional
 from enum import Enum
+from typing import Any, Dict, List, Optional
+
+from pydantic import BaseModel, Field
 
 
 class NPCStatus(str, Enum):
     """NPC 状态"""
-    SEED = "seed"           # 种子状态（仅概念，未实例化）
-    ACTIVE = "active"       # 活跃（可交互）
-    INACTIVE = "inactive"   # 非活跃（暂时不可见）
-    RETIRED = "retired"     # 退役（剧情结束）
+
+    SEED = "seed"  # 种子状态（仅概念，未实例化）
+    ACTIVE = "active"  # 活跃（可交互）
+    INACTIVE = "inactive"  # 非活跃（暂时不可见）
+    RETIRED = "retired"  # 退役（剧情结束）
 
 
 class NPCPersonality(BaseModel):
     """NPC 性格"""
+
     traits: List[str] = Field(default_factory=list)  # 性格特征列表
     values: Dict[str, int] = Field(default_factory=dict)  # 价值观（如：正义=8, 贪婪=3）
     speech_style: str = ""  # 说话风格描述
@@ -35,6 +38,7 @@ class NPCPersonality(BaseModel):
 
 class NPCMemory(BaseModel):
     """NPC 记忆"""
+
     turn_number: int
     event_type: str  # conversation/quest/combat/observation
     summary: str
@@ -48,6 +52,7 @@ class NPCMemory(BaseModel):
 
 class NPCRelationship(BaseModel):
     """NPC 与其他角色的关系"""
+
     target_id: str  # 目标角色ID（玩家或其他NPC）
     affinity: int = 0  # 好感度 (-100 到 +100)
     trust: int = 0  # 信任度 (0 到 100)
@@ -78,6 +83,7 @@ class NPCRelationship(BaseModel):
 
 class NPC(BaseModel):
     """NPC 完整数据模型"""
+
     id: str
     name: str
     role: str  # 职业/角色（如：商人、铁匠、守卫、村长）
@@ -117,7 +123,7 @@ class NPC(BaseModel):
         event_type: str,
         summary: str,
         emotional_impact: int = 0,
-        participants: Optional[List[str]] = None
+        participants: Optional[List[str]] = None,
     ):
         """添加记忆"""
         memory = NPCMemory(
@@ -125,7 +131,7 @@ class NPC(BaseModel):
             event_type=event_type,
             summary=summary,
             emotional_impact=emotional_impact,
-            participants=participants or []
+            participants=participants or [],
         )
         self.memories.append(memory)
 
@@ -209,11 +215,12 @@ class NPC(BaseModel):
             "relationships": [r.model_dump() for r in self.relationships],
             "current_location": self.current_location,
             "available_quests": self.available_quests,
-            "dialogue_state": self.dialogue_state
+            "dialogue_state": self.dialogue_state,
         }
 
 
 # ==================== 辅助函数 ====================
+
 
 def create_npc_from_dict(data: Dict[str, Any]) -> NPC:
     """从字典创建 NPC 对象
@@ -252,7 +259,7 @@ def create_npc_from_dict(data: Dict[str, Any]) -> NPC:
         relationships=relationships,
         current_location=data.get("current_location"),
         available_quests=data.get("available_quests", []),
-        dialogue_state=data.get("dialogue_state", {})
+        dialogue_state=data.get("dialogue_state", {}),
     )
 
     return npc

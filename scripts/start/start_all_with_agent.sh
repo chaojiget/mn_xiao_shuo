@@ -48,7 +48,8 @@ if [ -z "$OPENROUTER_BASE_URL" ]; then
 fi
 
 if [ -z "$DEFAULT_MODEL" ]; then
-    export DEFAULT_MODEL="deepseek/deepseek-v3.1-terminus"
+    echo "⚠️  警告: DEFAULT_MODEL 环境变量未设置，使用 fallback: moonshotai/kimi-k2-thinking"
+    export DEFAULT_MODEL="moonshotai/kimi-k2-thinking"
 fi
 
 # 创建必要的目录

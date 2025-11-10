@@ -4,13 +4,19 @@
 """
 
 import json
-from typing import List, Dict, Any, Optional
+import os
+from typing import Any, Dict, List, Optional
+
+from database.world_db import WorldDatabase
 
 from models.world_models import (
-    Location, DetailLayer, LocationRefinementRequest,
-    AffordanceExtractionRequest, RefinementResult, AffordanceResult
+    AffordanceExtractionRequest,
+    AffordanceResult,
+    DetailLayer,
+    Location,
+    LocationRefinementRequest,
+    RefinementResult,
 )
-from database.world_db import WorldDatabase
 
 
 class SceneRefinement:
@@ -24,13 +30,13 @@ class SceneRefinement:
         """
         self.llm = llm_client
         self.db = world_db
+        # 从环境变量读取默认模型
+        self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
 
     # ============ 主流程 ============
 
     async def refine_location(
-        self,
-        request: LocationRefinementRequest,
-        world_style: Dict[str, Any]
+        self, request: LocationRefinementRequest, world_style: Dict[str, Any]
     ) -> RefinementResult:
         """
         细化地点（多Pass流水线）
@@ -57,7 +63,7 @@ class SceneRefinement:
                 detail_level=location.detail_level,
                 layers=existing_layers,
                 affordances=self._extract_affordances_from_layers(existing_layers),
-                narrative_text=None
+                narrative_text=None,
             )
 
         layers = []
@@ -101,16 +107,12 @@ class SceneRefinement:
             detail_level=location.detail_level,
             layers=layers,
             affordances=affordances,
-            narrative_text=narrative_text
+            narrative_text=narrative_text,
         )
 
     # ============ 各个Pass ============
 
-    async def _structure_pass(
-        self,
-        location: Location,
-        world_style: Dict[str, Any]
-    ) -> DetailLayer:
+    async def _structure_pass(self, location: Location, world_style: Dict[str, Any]) -> DetailLayer:
         """
         Pass 1: 结构草稿
         产出：环境总述、构图层次、主要可互动物、危险/悬念
@@ -142,10 +144,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.75,
-            max_tokens=800
+            prompt=prompt, model=self.default_model, temperature=0.75, max_tokens=800
         )
 
         content = json.loads(response.strip())
@@ -158,20 +157,16 @@ class SceneRefinement:
             content=content,
             source="generated",
             generated_by_turn=None,
-            status="canon"
+            status="canon",
         )
 
-    async def _sensory_pass(
-        self,
-        location: Location,
-        world_style: Dict[str, Any]
-    ) -> DetailLayer:
+    async def _sensory_pass(self, location: Location, world_style: Dict[str, Any]) -> DetailLayer:
         """
         Pass 2: 感官增益
         产出：5-8个感官节点（视觉/听觉/嗅觉/触感/温度）
         """
 
-        sensory_vocab = world_style.get('sensory', [])
+        sensory_vocab = world_style.get("sensory", [])
 
         prompt = f"""你是场景描写专家。请为以下地点生成感官节点。
 
@@ -215,10 +210,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.8,
-            max_tokens=1000
+            prompt=prompt, model=self.default_model, temperature=0.8, max_tokens=1000
         )
 
         content = json.loads(response.strip())
@@ -230,13 +222,11 @@ class SceneRefinement:
             layer_type="sensory",
             content=content,
             source="generated",
-            status="canon"
+            status="canon",
         )
 
     async def _affordance_pass(
-        self,
-        location: Location,
-        world_style: Dict[str, Any]
+        self, location: Location, world_style: Dict[str, Any]
     ) -> DetailLayer:
         """
         Pass 3: 可供性提取
@@ -281,10 +271,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.75,
-            max_tokens=1200
+            prompt=prompt, model=self.default_model, temperature=0.75, max_tokens=1200
         )
 
         content = json.loads(response.strip())
@@ -296,14 +283,11 @@ class SceneRefinement:
             layer_type="affordance",
             content=content,
             source="generated",
-            status="canon"
+            status="canon",
         )
 
     async def _cinematic_pass(
-        self,
-        location: Location,
-        world_style: Dict[str, Any],
-        previous_layers: List[DetailLayer]
+        self, location: Location, world_style: Dict[str, Any], previous_layers: List[DetailLayer]
     ) -> DetailLayer:
         """
         Pass 4: 镜头语言
@@ -360,10 +344,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.7,
-            max_tokens=1000
+            prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=1000
         )
 
         content = json.loads(response.strip())
@@ -375,15 +356,12 @@ class SceneRefinement:
             layer_type="cinematic",
             content=content,
             source="generated",
-            status="canon"
+            status="canon",
         )
 
     # ============ 可供性提取（单独接口） ============
 
-    async def extract_affordances(
-        self,
-        request: AffordanceExtractionRequest
-    ) -> AffordanceResult:
+    async def extract_affordances(self, request: AffordanceExtractionRequest) -> AffordanceResult:
         """
         提取可供性（用于运行时）
 
@@ -411,20 +389,13 @@ class SceneRefinement:
 
         # 生成suggested_actions（UI chips）
         suggested_actions = self._generate_suggested_actions(
-            affordances,
-            request.character_state,
-            request.context
+            affordances, request.character_state, request.context
         )
 
-        return AffordanceResult(
-            affordances=affordances,
-            suggested_actions=suggested_actions
-        )
+        return AffordanceResult(affordances=affordances, suggested_actions=suggested_actions)
 
     async def _extract_affordances_dynamic(
-        self,
-        location: Location,
-        character_state: Optional[Dict[str, Any]]
+        self, location: Location, character_state: Optional[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """动态提取可供性"""
 
@@ -457,10 +428,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.7,
-            max_tokens=800
+            prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=800
         )
 
         data = json.loads(response.strip())
@@ -470,7 +438,7 @@ class SceneRefinement:
         self,
         affordances: List[Dict[str, Any]],
         character_state: Optional[Dict[str, Any]],
-        context: Optional[Dict[str, Any]]
+        context: Optional[Dict[str, Any]],
     ) -> List[str]:
         """
         生成建议行动chips
@@ -504,9 +472,7 @@ class SceneRefinement:
         return suggestions[:5]
 
     def _check_requirement(
-        self,
-        requirement: Optional[Dict[str, Any]],
-        character_state: Optional[Dict[str, Any]]
+        self, requirement: Optional[Dict[str, Any]], character_state: Optional[Dict[str, Any]]
     ) -> bool:
         """检查是否满足前置条件（简化版）"""
 
@@ -544,10 +510,7 @@ class SceneRefinement:
         return []
 
     async def _generate_narrative_text(
-        self,
-        location: Location,
-        layers: List[DetailLayer],
-        world_style: Dict[str, Any]
+        self, location: Location, layers: List[DetailLayer], world_style: Dict[str, Any]
     ) -> Optional[str]:
         """
         生成叙事文本（可选）
@@ -590,10 +553,7 @@ class SceneRefinement:
 """
 
         response = await self.llm.generate(
-            prompt=prompt,
-            model="deepseek",
-            temperature=0.75,
-            max_tokens=600
+            prompt=prompt, model=self.default_model, temperature=0.75, max_tokens=600
         )
 
         return response.strip()

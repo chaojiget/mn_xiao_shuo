@@ -362,10 +362,27 @@ class DMAgentLangChain:
                                 if hasattr(msg, "type") and msg.type == "tool":
                                     tool_name = getattr(msg, "name", "unknown")
                                     logger.info(f"✅ 检测到工具返回: {tool_name}")
+
+                                    # 🔥 安全地序列化输出（处理 Pydantic 模型）
+                                    try:
+                                        # 尝试直接转为 JSON（字符串、数字、列表、字典）
+                                        output = msg.content
+                                        if hasattr(output, "model_dump"):
+                                            # Pydantic 模型
+                                            output = output.model_dump()
+                                        elif hasattr(output, "dict"):
+                                            # 旧版 Pydantic
+                                            output = output.dict()
+                                        # 确保可以序列化
+                                        json.dumps(output)
+                                    except (TypeError, ValueError, AttributeError):
+                                        # 无法序列化，转为字符串
+                                        output = str(msg.content)
+
                                     yield {
                                         "type": "tool_result",
                                         "tool": tool_name,
-                                        "output": msg.content
+                                        "output": output
                                     }
 
                                 # 🔥 处理文本内容（叙事 + 思考过程检测）

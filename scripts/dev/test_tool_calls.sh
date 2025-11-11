@@ -42,16 +42,42 @@ echo ""
 TEST_REQUEST_1='{
   "playerInput": "查看我的状态",
   "currentState": {
-    "worldName": "测试世界",
-    "playerCharacter": {
-      "name": "测试玩家",
+    "version": "1.0.0",
+    "session_id": "test_session_1",
+    "turn_number": 1,
+    "player": {
       "hp": 100,
       "maxHp": 100,
-      "level": 1
+      "stamina": 100,
+      "maxStamina": 100,
+      "traits": [],
+      "inventory": [],
+      "location": "新手村",
+      "money": 0
     },
-    "currentLocation": "新手村",
-    "turn_number": 1,
-    "log": []
+    "world": {
+      "time": 0,
+      "flags": {},
+      "discoveredLocations": ["新手村"],
+      "variables": {},
+      "currentScene": "新手村广场"
+    },
+    "map": {
+      "nodes": [
+        {
+          "id": "start",
+          "name": "新手村",
+          "shortDesc": "一个宁静的小村庄",
+          "discovered": true,
+          "locked": false
+        }
+      ],
+      "edges": [],
+      "currentNodeId": "start"
+    },
+    "quests": [],
+    "log": [],
+    "metadata": {}
   }
 }'
 
@@ -85,17 +111,42 @@ echo ""
 TEST_REQUEST_2='{
   "playerInput": "我找到了一把剑",
   "currentState": {
-    "worldName": "测试世界",
-    "playerCharacter": {
-      "name": "测试玩家",
+    "version": "1.0.0",
+    "session_id": "test_session_2",
+    "turn_number": 2,
+    "player": {
       "hp": 100,
       "maxHp": 100,
-      "level": 1,
-      "inventory": []
+      "stamina": 100,
+      "maxStamina": 100,
+      "traits": [],
+      "inventory": [],
+      "location": "森林",
+      "money": 0
     },
-    "currentLocation": "新手村",
-    "turn_number": 2,
-    "log": []
+    "world": {
+      "time": 2,
+      "flags": {},
+      "discoveredLocations": ["新手村", "森林"],
+      "variables": {},
+      "currentScene": "森林深处"
+    },
+    "map": {
+      "nodes": [
+        {
+          "id": "forest",
+          "name": "森林",
+          "shortDesc": "茂密的森林",
+          "discovered": true,
+          "locked": false
+        }
+      ],
+      "edges": [],
+      "currentNodeId": "forest"
+    },
+    "quests": [],
+    "log": [],
+    "metadata": {}
   }
 }'
 
@@ -137,19 +188,42 @@ echo ""
 TEST_REQUEST_3='{
   "playerInput": "我尝试破解这个机关(力量检定)",
   "currentState": {
-    "worldName": "测试世界",
-    "playerCharacter": {
-      "name": "测试玩家",
+    "version": "1.0.0",
+    "session_id": "test_session_3",
+    "turn_number": 3,
+    "player": {
       "hp": 100,
       "maxHp": 100,
-      "level": 1,
-      "attributes": {
-        "strength": 15
-      }
+      "stamina": 100,
+      "maxStamina": 100,
+      "traits": ["强壮"],
+      "inventory": [],
+      "location": "地牢入口",
+      "money": 0
     },
-    "currentLocation": "地牢入口",
-    "turn_number": 3,
-    "log": []
+    "world": {
+      "time": 3,
+      "flags": {"found_dungeon": true},
+      "discoveredLocations": ["新手村", "地牢入口"],
+      "variables": {"strength_modifier": 2},
+      "currentScene": "神秘的石门"
+    },
+    "map": {
+      "nodes": [
+        {
+          "id": "dungeon",
+          "name": "地牢入口",
+          "shortDesc": "阴暗的地下入口",
+          "discovered": true,
+          "locked": false
+        }
+      ],
+      "edges": [],
+      "currentNodeId": "dungeon"
+    },
+    "quests": [],
+    "log": [],
+    "metadata": {}
   }
 }'
 
@@ -193,16 +267,42 @@ if echo "$CURRENT_MODEL" | grep -q "kimi-k2"; then
     TEST_REQUEST_4='{
       "playerInput": "这个房间有什么可疑之处？",
       "currentState": {
-        "worldName": "测试世界",
-        "playerCharacter": {
-          "name": "测试玩家",
+        "version": "1.0.0",
+        "session_id": "test_session_4",
+        "turn_number": 4,
+        "player": {
           "hp": 100,
           "maxHp": 100,
-          "level": 1
+          "stamina": 100,
+          "maxStamina": 100,
+          "traits": [],
+          "inventory": [],
+          "location": "神秘房间",
+          "money": 0
         },
-        "currentLocation": "神秘房间",
-        "turn_number": 4,
-        "log": []
+        "world": {
+          "time": 4,
+          "flags": {},
+          "discoveredLocations": ["神秘房间"],
+          "variables": {},
+          "currentScene": "昏暗的房间"
+        },
+        "map": {
+          "nodes": [
+            {
+              "id": "mystery_room",
+              "name": "神秘房间",
+              "shortDesc": "充满未知的房间",
+              "discovered": true,
+              "locked": false
+            }
+          ],
+          "edges": [],
+          "currentNodeId": "mystery_room"
+        },
+        "quests": [],
+        "log": [],
+        "metadata": {}
       }
     }'
 

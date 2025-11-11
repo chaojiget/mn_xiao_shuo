@@ -12,6 +12,7 @@ from typing import Any, Dict
 import yaml
 
 from utils.logger import get_logger
+from config.settings import settings
 
 logger = get_logger(__name__)
 
@@ -40,7 +41,7 @@ class LLMConfigLoader:
         if not config_file.exists():
             logger.warning(f"[WARNING] 配置文件不存在: {self.config_path}")
             # 使用统一的默认模型（DeepSeek，符合文档）
-            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+            default_model = settings.default_model
             logger.info(f"[INFO] 使用默认配置: LangChain + {default_model}")
             return {
                 "backend": "langchain",
@@ -62,7 +63,13 @@ class LLMConfigLoader:
             return [self._replace_env_vars(item) for item in obj]
         elif isinstance(obj, str) and obj.startswith("${") and obj.endswith("}"):
             env_var = obj[2:-1]
-            return os.getenv(env_var, "")
+            # 优先从 settings 映射（常用键），否则读取环境变量
+            mapping = {
+                "OPENROUTER_API_KEY": settings.openrouter_api_key,
+                "OPENROUTER_BASE_URL": settings.openrouter_base_url,
+                "DEFAULT_MODEL": settings.default_model,
+            }
+            return mapping.get(env_var) or os.getenv(env_var, "")
         return obj
 
     def get_backend_type(self) -> str:
@@ -93,7 +100,7 @@ class LLMConfigLoader:
         """
         backend_type = self.get_backend_type()
 
-        if backend_type not in ["litellm", "claude"]:
+        if backend_type not in ["langchain", "litellm", "claude"]:
             logger.error(f"[ERROR] 无效的后端类型: {backend_type}")
             return False
 
@@ -117,7 +124,7 @@ class LLMConfigLoader:
         logger.info(f"后端类型: {backend_type}")
 
         if backend_type == "langchain":
-            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+            default_model = settings.default_model
             logger.info(f"默认模型: {backend_config.get('model', default_model)}")
             logger.info(f"温度: {backend_config.get('temperature', 0.7)}")
             logger.info(f"成本: 低 (~$0.001-0.005/回合)")

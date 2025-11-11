@@ -7,12 +7,14 @@
 
 import contextvars
 import random
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, List
 
 # 导入统一的状态管理器
 from database.game_state_db import GameStateCache, GameStateManager
 from langchain.tools import tool
 from langchain_core.tools import ToolException
+from config.settings import settings
+from services.world_indexer import create_world_indexer
 
 # ============= 游戏状态管理 =============
 
@@ -813,6 +815,51 @@ def save_game(slot_id: int, save_name: str) -> Dict[str, Any]:
     }
 
 
+@tool
+def search_world_kb(query: str, kind: Optional[str] = None, top_k: int = 5) -> Dict[str, Any]:
+    """检索当前世界的知识库（NPC/Lore等）。
+
+    Args:
+        query: 查询文本
+        kind: 可选筛选（npc/lore），默认不筛选
+        top_k: 返回条数，默认 5
+
+    Returns:
+        { success, results, count, world_id }
+    """
+    try:
+        # 优先使用强类型 GameState
+        try:
+            state_obj: GameState = get_state_object()
+            world_id = None
+            if hasattr(state_obj, "metadata") and isinstance(state_obj.metadata, dict):
+                world_id = state_obj.metadata.get("worldPackId") or state_obj.metadata.get("world_id")
+            if not world_id and hasattr(state_obj, "world") and hasattr(state_obj.world, "variables"):
+                variables = state_obj.world.variables or {}
+                world_id = variables.get("worldPackId") or variables.get("world_id")
+        except Exception:
+            # 回退到 dict 状态
+            st = get_state()
+            md = st.get("metadata", {}) if isinstance(st, dict) else {}
+            world_id = md.get("worldPackId") or md.get("world_id")
+
+        if not world_id:
+            return {"success": False, "message": "当前状态缺少 worldId，无法检索世界知识库"}
+
+        indexer = create_world_indexer(str(settings.database_path))
+        results = indexer.search(world_id, query, kind, top_k)
+
+        return {
+            "success": True,
+            "results": results,
+            "count": len(results) if results else 0,
+            "world_id": world_id,
+        }
+
+    except Exception as e:
+        return {"success": False, "message": f"检索失败: {e}"}
+
+
 # ============= 导出所有工具 =============
 
 ALL_GAME_TOOLS = [
@@ -832,4 +879,27 @@ ALL_GAME_TOOLS = [
     update_npc_relationship,
     add_npc_memory,
     save_game,
+    search_world_kb,
 ]
+
+# ============= 人机中断辅助工具 =============
+
+@tool
+def request_player_choice(question: str, options: List[str]) -> Dict[str, Any]:
+    """向玩家发起一个选择请求（服务端将暂停推进，等待客户端 resume）。
+
+    Args:
+        question: 向玩家展示的问题
+        options: 供玩家选择的选项列表（2-6 个）
+
+    Returns:
+        一个带有中断标记的字典（供服务器识别并发出 interrupt 事件）
+    """
+    return {
+        "type": "interrupt",
+        "question": question,
+        "options": options,
+    }
+
+# 将该工具追加到全量工具（放末尾避免破坏现有顺序）
+ALL_GAME_TOOLS.append(request_player_choice)

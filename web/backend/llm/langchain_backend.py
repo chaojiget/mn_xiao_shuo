@@ -10,6 +10,7 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
+from config.settings import settings
 
 from utils.logger import get_logger
 
@@ -60,23 +61,17 @@ class LangChainBackend(LLMBackend):
             "kimi": "deepseek/deepseek-v3.1-terminus",
         }
 
-        # 获取模型名称
-        default_model = os.getenv("DEFAULT_MODEL")
-        if not default_model:
-            logger.warning(
-                "⚠️  警告: DEFAULT_MODEL 环境变量未设置，使用 fallback: deepseek/deepseek-v3.1-terminus"
-            )
-            default_model = "deepseek/deepseek-v3.1-terminus"
-        model_key = self.config.get("model", default_model)
+        # 获取模型名称（统一从 settings.default_model，可被 config 覆盖）
+        model_key = self.config.get("model", settings.default_model)
         model_name = self.model_map.get(model_key, model_key)
 
         # 初始化 ChatOpenAI (OpenRouter)
         self.model = ChatOpenAI(
             model=model_name,
-            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            temperature=self.config.get("temperature", 0.7),
-            max_tokens=self.config.get("max_tokens", 4096),
+            base_url=settings.openrouter_base_url,
+            api_key=settings.openrouter_api_key,
+            temperature=self.config.get("temperature", settings.llm_temperature),
+            max_tokens=self.config.get("max_tokens", min(settings.llm_max_tokens, 4096)),
             streaming=self.config.get("streaming", True),
         )
 
@@ -288,11 +283,12 @@ class LangChainBackend(LLMBackend):
 
     def get_backend_info(self) -> Dict[str, Any]:
         """获取后端信息"""
+        from config.settings import settings
         return {
             "backend": "LangChain",
             "model": self.model.model_name,
             "provider": "OpenRouter",
             "supports_streaming": True,
             "supports_tools": True,
-            "base_url": os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
+            "base_url": settings.openrouter_base_url,
         }

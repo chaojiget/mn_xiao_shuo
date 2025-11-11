@@ -166,15 +166,14 @@ async def process_turn(request: GameTurnRequestModel):
         response = await game_engine.process_turn(turn_request)
         logger.debug(f"[DEBUG] Turn processed successfully")
 
-        # 自动保存游戏状态到数据库
+        # 自动保存游戏状态到数据库（写入 auto_saves 表，避免槽位约束冲突）
         if save_service:
             try:
-                auto_save_id = save_service.save_game(
+                turn_no = state.world.time if hasattr(state, "world") else request.currentState.get("world", {}).get("time", 0)
+                auto_save_id = save_service.auto_save(
                     user_id="default_user",
-                    slot_id=0,  # 0 表示自动保存槽位
-                    save_name="自动保存",
                     game_state=state.model_dump(),
-                    auto_save=True
+                    turn_number=turn_no,
                 )
                 logger.debug(f"[DEBUG] 💾 自动保存成功: auto_save_id={auto_save_id}")
             except Exception as e:

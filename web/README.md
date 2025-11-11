@@ -67,6 +67,30 @@ npm run dev
 - ✅ AI DM 实时叙事（WebSocket 流式）
 - ✅ 任务与NPC系统
 - ✅ 自动保存 + 多槽位存档
-- ✅ 世界语义索引与检索（可回退哈希向量）
+- ✅ 世界语义索引与检索（默认在线嵌入：qwen/qwen3-embedding-8b，经 OpenRouter）
+
+## RAG 与中断/恢复（快速验证）
+
+### 在线嵌入（默认）
+- `.env` 配置：
+  - `OPENROUTER_API_KEY=...`
+  - `EMBEDDING_MODEL=qwen/qwen3-embedding-8b`（可选，默认已是该模型）
+- RAG 索引写入 SQLite `world_kb` 表（路径见 `settings.database_path`）
+
+### WebSocket 协议（含中断/恢复）
+- 连接：`/api/dm/ws/{session_id}`
+- 发送示例：
+  - 发起行动
+    ```json
+    {"type":"action","player_action":"给我两个选项","game_state":{...}}
+    ```
+  - 中断后继续
+    ```json
+    {"type":"resume","human_response":"我选第一个","checkpoint_id":"<可选>","game_state":{...}}
+    ```
+- 返回事件：`narration` | `tool_call` | `interrupt` | `complete` | `error`
+  - `interrupt` 附带 `prompt`、`options`、`checkpoint_id`（可用于精准恢复）
+
+更多计划见 [docs/ROADMAP_NEXT_PHASE.md](../docs/ROADMAP_NEXT_PHASE.md)。
 
 更多细节见 [docs/PROJECT_OVERVIEW.md](../docs/PROJECT_OVERVIEW.md) 与 [docs/WORLDPACK_QUICKSTART.md](../docs/WORLDPACK_QUICKSTART.md)。

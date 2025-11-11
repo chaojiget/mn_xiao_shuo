@@ -4,20 +4,13 @@
 
 import asyncio
 import json
-import logging
 from datetime import datetime
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
 
 from pydantic import BaseModel
-
-# 配置日志
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+logger = get_logger(__name__)
 
 from .game_tools import GameMap, GameState, GameTools, PlayerState, RollCheckParams, WorldState
 from .quests import QuestEngine

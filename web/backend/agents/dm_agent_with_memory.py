@@ -193,20 +193,17 @@ class DMAgentWithMemory:
         }
 
         if model_name is None:
-            model_name = os.getenv("DEFAULT_MODEL")
-            if not model_name:
-                logger.warning(
-                    "⚠️  警告: DEFAULT_MODEL 环境变量未设置，使用 fallback: deepseek/deepseek-v3.1-terminus"
-                )
-                model_name = "deepseek/deepseek-v3.1-terminus"
+            from config.settings import settings
+            model_name = settings.default_model
 
         full_model_name = self.model_map.get(model_name, model_name)
 
+        from config.settings import settings
         self.model = ChatOpenAI(
             model=full_model_name,
-            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            temperature=0.7,
+            base_url=settings.openrouter_base_url,
+            api_key=settings.openrouter_api_key,
+            temperature=settings.llm_temperature,
             streaming=True,
         )
 

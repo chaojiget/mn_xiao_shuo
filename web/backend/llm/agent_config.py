@@ -16,6 +16,7 @@ from typing import Any, Dict, Optional
 
 import yaml
 from utils.logger import get_logger
+from config.settings import settings
 
 logger = get_logger(__name__)
 
@@ -61,7 +62,16 @@ class AgentConfigLoader:
             return [self._replace_env_vars(item) for item in obj]
         elif isinstance(obj, str) and obj.startswith("${") and obj.endswith("}"):
             env_var = obj[2:-1]
-            return os.getenv(env_var, "")
+            mapping = {
+                "OPENROUTER_API_KEY": settings.openrouter_api_key,
+                "OPENROUTER_BASE_URL": settings.openrouter_base_url,
+                "DEFAULT_MODEL": settings.default_model,
+                "LITELLM_MASTER_KEY": settings.litellm_master_key,
+                "ANTHROPIC_BASE_URL": settings.anthropic_base_url,
+                "ANTHROPIC_AUTH_TOKEN": settings.anthropic_auth_token,
+                "ANTHROPIC_MODEL": settings.anthropic_model,
+            }
+            return mapping.get(env_var) or os.getenv(env_var, "")
         return obj
 
     def get_global_config(self) -> Dict[str, Any]:
@@ -86,10 +96,10 @@ class AgentConfigLoader:
             logger.info(f"[INFO] 可用的 Agent: {list(agents.keys())}")
             # 返回默认配置
             return {
-                "backend": "litellm",
-                "model": "deepseek",
-                "temperature": 0.7,
-                "max_tokens": 2000
+                "backend": "langchain",
+                "model": settings.default_model,
+                "temperature": settings.llm_temperature,
+                "max_tokens": min(2000, settings.llm_max_tokens),
             }
 
         # 合并全局配置

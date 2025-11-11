@@ -20,25 +20,24 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
     """
     try:
         import os
+        from config.settings import settings
 
-        # 配置使用 LiteLLM Proxy + DeepSeek
-        # 这些环境变量在 start_all_with_agent.sh 中已经设置好了
-        # ANTHROPIC_BASE_URL=http://0.0.0.0:4000
-        # ANTHROPIC_AUTH_TOKEN=$LITELLM_MASTER_KEY
-        # ANTHROPIC_MODEL=openrouter/deepseek/deepseek-v3.1-terminus-v3-0324
-        # 确保环境变量已设置（如果未设置则使用默认值）
+        # 配置使用 LiteLLM Proxy + DeepSeek（统一通过 settings 覆盖，保留合理兜底）
         if not os.getenv("ANTHROPIC_BASE_URL"):
-            os.environ["ANTHROPIC_BASE_URL"] = "http://localhost:4000"
+            if settings.anthropic_base_url:
+                os.environ["ANTHROPIC_BASE_URL"] = settings.anthropic_base_url
+            else:
+                os.environ["ANTHROPIC_BASE_URL"] = "http://localhost:4000"
         if not os.getenv("ANTHROPIC_AUTH_TOKEN"):
-            # 从 .env 读取 LITELLM_MASTER_KEY
-            master_key = os.getenv("LITELLM_MASTER_KEY", "sk-litellm-default")
-            os.environ["ANTHROPIC_AUTH_TOKEN"] = master_key
+            token = settings.anthropic_auth_token or settings.litellm_master_key or os.getenv("LITELLM_MASTER_KEY", "sk-litellm-default")
+            os.environ["ANTHROPIC_AUTH_TOKEN"] = token
         if not os.getenv("ANTHROPIC_MODEL"):
-            # 从 DEFAULT_MODEL 环境变量读取（已包含 provider/ 前缀）
-            default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
-            # DEFAULT_MODEL 格式: "provider/model" (如 deepseek/deepseek-v3.1-terminus)
-            # ANTHROPIC_MODEL 需要格式: "openrouter/provider/model"
-            os.environ["ANTHROPIC_MODEL"] = f"openrouter/{default_model}"
+            model = settings.anthropic_model
+            if not model:
+                # 从默认模型构造 openrouter 前缀形式
+                default_model = settings.default_model
+                model = f"openrouter/{default_model}"
+            os.environ["ANTHROPIC_MODEL"] = model
 
         # 动态导入 Claude Agent SDK
         from claude_agent_sdk import AssistantMessage, ClaudeAgentOptions, TextBlock, query

@@ -30,8 +30,14 @@ class SceneRefinement:
         """
         self.llm = llm_client
         self.db = world_db
-        # 从环境变量读取默认模型
-        self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+        # 使用统一配置（可从 .env / ENV 覆盖）
+        try:
+            from config.settings import settings
+
+            self.default_model = settings.world_gen_model
+        except Exception:
+            # 兜底：保留旧逻辑
+            self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
 
     # ============ 主流程 ============
 

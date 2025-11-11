@@ -25,8 +25,15 @@ router = APIRouter(prefix="/api/worlds", tags=["worlds"])
 
 # 全局路径
 def get_db_path() -> str:
-    project_root = Path(__file__).parent.parent.parent.parent
-    return str(project_root / "data" / "sqlite" / "novel.db")
+    # 统一通过 settings 配置数据库路径
+    try:
+        from config.settings import settings
+
+        return str(settings.database_path)
+    except Exception:
+        # 兜底：保留原路径逻辑
+        project_root = Path(__file__).parent.parent.parent.parent
+        return str(project_root / "data" / "sqlite" / "novel.db")
 
 
 # ============ 请求/响应模型 ============

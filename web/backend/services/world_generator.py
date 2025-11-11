@@ -34,8 +34,12 @@ class WorldGenerator:
             llm_client: LiteLLM客户端实例
         """
         self.llm = llm_client
-        # 从环境变量读取默认模型
-        self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
+        # 使用统一配置（settings.world_gen_model），无可用配置时回退到 env
+        try:
+            from config.settings import settings
+            self.default_model = settings.world_gen_model
+        except Exception:
+            self.default_model = os.getenv("DEFAULT_MODEL", "deepseek/deepseek-v3.1-terminus")
 
     # ============ 世界生成 ============
 

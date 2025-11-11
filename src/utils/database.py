@@ -21,9 +21,14 @@ class Database:
             db_path: 数据库文件路径,默认从环境变量获取
         """
         if db_path is None:
-            db_url = os.getenv("DATABASE_URL", "sqlite:///./data/sqlite/novel.db")
-            # 解析 sqlite:///path 格式
-            db_path = db_url.replace("sqlite:///", "")
+            # 优先统一配置 settings.database_path；保持 DATABASE_URL 兼容
+            try:
+                from config.settings import settings  # type: ignore
+                db_path = str(settings.database_path)
+            except Exception:
+                db_url = os.getenv("DATABASE_URL", "sqlite:///./data/sqlite/novel.db")
+                # 解析 sqlite:///path 格式
+                db_path = db_url.replace("sqlite:///", "")
 
         # 确保目录存在
         Path(db_path).parent.mkdir(parents=True, exist_ok=True)

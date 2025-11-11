@@ -8,7 +8,6 @@ DM Agent - 游戏主持人 Agent (LangChain 1.0 实现)
 """
 
 import json
-import logging
 import os
 from pathlib import Path
 from typing import Any, AsyncIterator, Dict, List, Optional
@@ -16,14 +15,11 @@ from typing import Any, AsyncIterator, Dict, List, Optional
 from langchain.agents import create_agent
 from langchain_core.messages import HumanMessage, SystemMessage
 from langchain_openai import ChatOpenAI
-
-# 配置日志
-logging.basicConfig(
-    level=logging.DEBUG,
-    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s",
-    datefmt="%H:%M:%S",
-)
-logger = logging.getLogger(__name__)
+from utils.logger import get_logger
+from services.world_indexer import create_world_indexer
+from config.settings import settings as _settings
+from config.settings import settings
+logger = get_logger(__name__)
 
 from .game_tools_langchain import ALL_GAME_TOOLS, set_current_session_id
 
@@ -66,23 +62,20 @@ class DMAgentLangChain:
 
         # 获取模型名称
         if model_name is None:
-            model_name = os.getenv("DEFAULT_MODEL")
-            if not model_name:
-                logger.warning(
-                    "⚠️  DEFAULT_MODEL 环境变量未设置，使用 fallback: deepseek/deepseek-v3.1-terminus"
-                )
-                model_name = "deepseek/deepseek-v3.1-terminus"
+            from config.settings import settings
+            model_name = settings.default_model
 
         # 映射简写到完整名称
         full_model_name = self.model_map.get(model_name, model_name)
 
         # 初始化 OpenRouter 模型
+        from config.settings import settings as _settings
         self.model = ChatOpenAI(
             model=full_model_name,
-            base_url=os.getenv("OPENROUTER_BASE_URL", "https://openrouter.ai/api/v1"),
-            api_key=os.getenv("OPENROUTER_API_KEY"),
-            temperature=0.7,
-            max_tokens=4096,
+            base_url=_settings.openrouter_base_url,
+            api_key=_settings.openrouter_api_key,
+            temperature=_settings.llm_temperature,
+            max_tokens=min(_settings.llm_max_tokens, 4096),
             streaming=True,
         )
 
@@ -127,6 +120,11 @@ class DMAgentLangChain:
 
     def _build_system_prompt(self, game_state: Dict[str, Any]) -> str:
         """构建系统提示词"""
+        summary = (
+            game_state.get("metadata", {}).get("log_summary")
+            or game_state.get("world", {}).get("variables", {}).get("conversation_summary")
+        )
+        summary_block = f"\n\n【对话摘要（已压缩历史）】\n{summary}" if summary else ""
         return f"""你是一个单人跑团游戏的游戏主持人（DM）。
 
 🎯 叙事连贯性规则（最高优先级）:
@@ -179,13 +177,46 @@ class DMAgentLangChain:
 - 战斗时要调用 roll_check 和 update_hp
 - 移动到新地点时要调用 set_location
 - 遇到新NPC时可以调用 create_npc
+- 遇到命名实体/背景设定时，优先调用 search_world_kb(query) 检索世界百科，确保设定一致
+ - 当需要玩家在多个行动中做出选择时，调用 request_player_choice(question, options)，然后等待玩家选择（服务端将暂停，直到收到 resume）
 
 叙述风格:
 - 使用第二人称("你")与玩家互动
 - 描述要生动形象，调动五感
 - 适当留白，让玩家有想象空间
 - 节奏要张弛有度
+{summary_block}
 """
+
+    def _get_world_id(self, game_state: Dict[str, Any]) -> Optional[str]:
+        md = game_state.get("metadata", {}) if isinstance(game_state, dict) else {}
+        world_id = md.get("worldPackId") or md.get("world_id")
+        if not world_id:
+            world = game_state.get("world", {}) if isinstance(game_state, dict) else {}
+            variables = world.get("variables", {}) if isinstance(world, dict) else {}
+            world_id = variables.get("worldPackId") or variables.get("world_id")
+        return world_id
+
+    def _retrieve_snippets(self, player_action: str, game_state: Dict[str, Any], top_k: int = 5) -> str:
+        try:
+            world_id = self._get_world_id(game_state)
+            if not world_id:
+                return ""
+            indexer = create_world_indexer(str(_settings.database_path))
+            results = indexer.search(world_id, player_action, None, top_k)
+            if not results:
+                return ""
+            lines = ["【世界检索结果】（用于设定一致性）"]
+            for r in results:
+                kind = r.get("kind", "fact")
+                ref = r.get("ref_id") or r.get("id") or "unknown"
+                content = r.get("content", "").strip()
+                if content:
+                    content = content.replace("\n", " ")
+                lines.append(f"- ({kind}:{ref}) {content[:200]}")
+            return "\n".join(lines)
+        except Exception:
+            return ""
 
     def _save_to_log(self, game_state: Dict[str, Any], player_action: str, dm_response: str):
         """保存对话到游戏日志
@@ -249,6 +280,11 @@ class DMAgentLangChain:
                 messages.append({"role": "user", "content": f"玩家行动: {text}"})
             elif actor == "system" or actor == "dm":
                 messages.append({"role": "assistant", "content": text})
+
+        # 在加入当前行动前，注入世界检索片段（可选）
+        kb = self._retrieve_snippets(current_player_action, game_state)
+        if kb:
+            messages.append({"role": "system", "content": kb})
 
         # 添加当前玩家行动
         messages.append(

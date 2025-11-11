@@ -10,6 +10,8 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).parent.parent))
 
 from src.utils.database import Database
+from pathlib import Path
+import sqlite3
 
 
 def main():
@@ -32,7 +34,7 @@ def main():
             print("取消操作")
             return
 
-    # 初始化 schema
+    # 初始化 schema（核心 + 世界生成 + 世界脚手架）
     try:
         with db:
             print("\n正在创建数据库表...")
@@ -49,6 +51,32 @@ def main():
             print(f"\n创建的表 ({len(tables)} 个):")
             for table in tables:
                 print(f"  - {table}")
+
+        # 追加执行其他 schema（世界相关）
+        conn = sqlite3.connect(db.db_path)
+        try:
+            def exec_sql(p: Path):
+                if not p.exists():
+                    raise FileNotFoundError(f"Schema 文件不存在: {p}")
+                with open(p, 'r', encoding='utf-8') as f:
+                    conn.executescript(f.read())
+
+            # 开启 WAL 与合理同步策略
+            conn.execute("PRAGMA journal_mode=WAL;")
+            conn.execute("PRAGMA synchronous=NORMAL;")
+            conn.execute("PRAGMA busy_timeout=5000;")
+
+            root = Path(__file__).parent.parent
+            world_gen = root / 'database' / 'schema' / 'world_generation.sql'
+            world_scaffold = root / 'database' / 'schema' / 'world_scaffold.sql'
+
+            print("\n追加世界生成与脚手架表...")
+            exec_sql(world_gen)
+            exec_sql(world_scaffold)
+            conn.commit()
+            print("✅ 世界相关表创建成功")
+        finally:
+            conn.close()
 
         print("\n" + "=" * 60)
         print("✅ 数据库初始化完成!")

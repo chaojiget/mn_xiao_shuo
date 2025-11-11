@@ -122,9 +122,21 @@ class Settings(BaseSettings):
     world_generation_model: Optional[str] = None  # 如果不设置则使用 default_model
     scene_refinement_passes: int = 4  # 场景细化的 Pass 数量
 
+    # ==================== 向量/嵌入配置 ====================
+    embedding_model: str = "qwen/qwen3-embedding-8b"  # 默认使用 Qwen3 Embedding 8B（OpenRouter）
+
     # ==================== 开发模式 ====================
     debug: bool = False
     enable_api_docs: bool = True  # 是否启用 /docs 和 /redoc
+
+    # ==================== Agent 运行时 ====================
+    dm_agent_backend: str = "langchain"  # langchain 或 langgraph（可通过 .env 覆盖）
+
+    # ==================== 可选供应商/代理配置 ====================
+    anthropic_base_url: Optional[str] = None
+    anthropic_auth_token: Optional[str] = None
+    anthropic_model: Optional[str] = None
+    litellm_master_key: Optional[str] = None
 
     # pydantic-settings 配置
     model_config = SettingsConfigDict(

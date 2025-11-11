@@ -11,6 +11,7 @@
 ### 架构与设计
 - `docs/architecture/ARCHITECTURE.md` - 系统架构设计
 - `docs/TECHNICAL_ARCHITECTURE.md` - 技术架构详解
+- `docs/ROADMAP_NEXT_PHASE.md` - 下一阶段路线图（RAG + 中断/恢复 + 运维）
 
 ### 功能与实现
 - `docs/features/GAME_UI_GUIDE.md` - 游戏UI指南

@@ -45,8 +45,8 @@ class WorldDatabase:
                 # 表已存在，跳过schema初始化
                 return
 
-            # 表不存在，执行schema
-            schema_path = Path(__file__).parent.parent.parent / "schema_world_scaffold.sql"
+            # 表不存在，执行schema（修正为仓库内标准路径）
+            schema_path = Path(__file__).parent.parent.parent.parent / "database" / "schema" / "world_scaffold.sql"
             if not schema_path.exists():
                 raise FileNotFoundError(f"Schema文件不存在: {schema_path}")
 

@@ -12,6 +12,7 @@ import numpy as np
 
 from models.world_pack import NPC, WorldPack
 from utils.logger import get_logger
+from llm.embeddings import EmbeddingClient
 
 logger = get_logger(__name__)
 
@@ -29,6 +30,7 @@ class WorldIndexer:
         """
         self.db_path = db_path
         self.llm = llm_client
+        self.embedder = EmbeddingClient()
 
     async def build_index(self, world_pack: WorldPack) -> Dict[str, int]:
         """
@@ -126,28 +128,23 @@ class WorldIndexer:
         return "\n".join(parts)
 
     async def _get_embedding(self, text: str) -> np.ndarray:
-        """
-        生成文本嵌入
-
-        使用简单的方法：如果没有 LLM 客户端，使用哈希值模拟
-        在实际使用中应该调用 OpenAI Embeddings API
-        """
-        if self.llm is None:
-            # 简单的哈希向量（测试用）
+        """生成文本嵌入（优先使用可配置的 Embedding Provider，失败则回退哈希向量）"""
+        try:
+            return await self.embedder.aembed_text(text)
+        except Exception as e:
+            logger.warning(f"[WorldIndexer] 嵌入失败，回退哈希向量: {e}")
             import hashlib
             hash_obj = hashlib.md5(text.encode('utf-8'))
             hash_bytes = hash_obj.digest()
-            # 转换为 128 维向量
             vector = np.frombuffer(hash_bytes, dtype=np.uint8).astype(np.float32)
-            # 归一化
             vector = vector / np.linalg.norm(vector)
             return vector
-        else:
-            # TODO: 调用 OpenAI Embeddings API
-            # embedding = await self.llm.get_embedding(text)
-            # return np.array(embedding)
 
-            # 暂时使用哈希向量
+    def _get_embedding_sync(self, text: str) -> np.ndarray:
+        try:
+            return self.embedder.embed_text(text)
+        except Exception as e:
+            logger.warning(f"[WorldIndexer] 同步嵌入失败，回退哈希向量: {e}")
             import hashlib
             hash_obj = hashlib.md5(text.encode('utf-8'))
             hash_bytes = hash_obj.digest()
@@ -219,9 +216,8 @@ class WorldIndexer:
         Returns:
             List[Dict]: 搜索结果 [{"ref_id": ..., "content": ..., "score": ...}]
         """
-        # 生成查询嵌入
-        import asyncio
-        query_embedding = asyncio.run(self._get_embedding(query))
+        # 生成查询嵌入（同步，避免 asyncio.run 嵌套事件循环问题）
+        query_embedding = self._get_embedding_sync(query)
 
         # 从数据库加载所有嵌入
         conn = sqlite3.connect(self.db_path)

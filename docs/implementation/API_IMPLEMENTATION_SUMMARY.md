@@ -1,4 +1,5 @@
 # Phase 2 游戏 API 实现总结
+<!-- moved to docs/implementation on 2025-11-11 -->
 
 ## 概述
 

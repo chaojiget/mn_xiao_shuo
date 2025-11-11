@@ -1,4 +1,5 @@
 # Phase 2 游戏 API 快速启动指南
+<!-- moved to docs/guides on 2025-11-11 -->
 
 本指南帮助你快速启动和测试新实现的游戏 API。
 
@@ -472,8 +473,8 @@ sqlite3 data/sqlite/novel.db < database/schema/core.sql
 
 ## 相关文档
 
-- [API 端点文档](docs/implementation/PHASE2_API_ENDPOINTS.md)
-- [实现总结](API_IMPLEMENTATION_SUMMARY.md)
+- [API 端点文档](../implementation/PHASE2_API_ENDPOINTS.md)
+- [实现总结](../implementation/API_IMPLEMENTATION_SUMMARY.md)
 - [技术实现计划](docs/TECHNICAL_IMPLEMENTATION_PLAN.md)
 - [Claude Agent SDK 集成指南](docs/implementation/CLAUDE_AGENT_SDK_IMPLEMENTATION.md)
 

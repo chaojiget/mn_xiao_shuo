@@ -1,4 +1,5 @@
 # ✅ LangChain 1.0 迁移成功报告
+<!-- moved to docs/operations on 2025-11-11 -->
 
 **日期**: 2025-11-04
 **耗时**: ~2小时

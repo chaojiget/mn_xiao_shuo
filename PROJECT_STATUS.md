@@ -1,14 +1,14 @@
-# AI 跑团小说生成系统 - 项目状态
+# AI 世界生成与跑团游戏 - 项目状态
 
-**最后更新**: 2025-11-04
-**当前版本**: v1.0.0 (Global Director + Game UI)
+**最后更新**: 2025-11-11
+**当前版本**: v1.2 (WorldPack + DM WebSocket + 存档)
 **总代码量**: ~18,000+ 行
 
 ---
 
 ## 🎯 项目概览
 
-这是一个基于 AI 驱动的长篇小说生成系统，支持科幻和玄幻/仙侠两大类型。系统采用"全局导演"(Global Director)架构，通过事件线评分、一致性审计和线索经济管理来生成连贯的长篇小说。
+这是一个基于 AI 的世界生成与单人跑团游戏系统。核心包括 WorldPack 预生成世界、LangChain 驱动的 DM Agent（支持 15+ 游戏工具）、实时流式对话（WebSocket）与完整的存档系统。
 
 **核心特性**:
 - ✅ Global Director 智能事件调度
@@ -29,7 +29,7 @@
 | **游戏界面** | ✅ 完成 | 100% | DM界面 + 任务 + NPC + 状态面板 |
 | **世界脚手架** | ✅ 完成 | 100% | 世界生成 + 场景细化 + Canon |
 | **存档系统** | ✅ 完成 | 100% | 10槽位 + 快照 + 自动保存 |
-| **WebSocket** | ⚠️ 待实现 | 80% | 前端已准备，后端待实现 |
+| **WebSocket** | ✅ 完成 | 100% | `WS /api/dm/ws/{session_id}` 已上线 |
 | **向量数据库** | ❌ 未开始 | 0% | 计划使用 ChromaDB |
 
 ---
@@ -57,7 +57,7 @@ GlobalDirector
     └── 健康度监控
 ```
 
-**代码位置**: `src/director/`
+**代码位置**: `src/director/`（实验模块，非必须）
 **演示代码**: `examples/global_director_demo.py`
 
 ---
@@ -122,7 +122,7 @@ GlobalDirector
 - ✅ 世界管理页面
 
 **代码位置**: `web/backend/services/world_generator.py`
-**访问地址**: http://localhost:3000/world
+**访问地址**: http://localhost:3000/worlds
 
 ---
 
@@ -207,10 +207,9 @@ mn_xiao_shuo/
 
 ### 2. 访问界面
 
-- **游戏界面**: http://localhost:3000/game/play
-- **聊天界面**: http://localhost:3000/chat
-- **世界管理**: http://localhost:3000/world
-- **API 文档**: http://localhost:8000/docs
+- 游戏界面: http://localhost:3000/game/play
+- 世界管理（WorldPack）: http://localhost:3000/worlds
+- API 文档: http://localhost:8000/docs
 
 ### 3. 测试 Global Director
 ```bash
@@ -240,10 +239,9 @@ python examples/global_director_demo.py
 11. **docs/features/GAME_FEATURES.md** - 游戏功能总览
 
 ### 快速参考
-12. **GLOBAL_DIRECTOR_SUMMARY.md** - Global Director 快速参考
-13. **API_IMPLEMENTATION_SUMMARY.md** - API 实现总结
-14. **QUICK_START_API.md** - API 快速启动
-15. **docs/reference/QUICK_REFERENCE.md** - 快速参考手册
+12. `docs/reference/QUICK_REFERENCE.md` - 快速参考手册
+13. `docs/implementation/PHASE2_API_ENDPOINTS.md` - API 端点详情
+14. `docs/WORLDPACK_QUICKSTART.md` - WorldPack 快速上手
 
 ---
 
@@ -272,9 +270,9 @@ python examples/global_director_demo.py
 ## 🎯 下一步计划
 
 ### 短期（1-2周）
-- [ ] 实现 WebSocket 后端（dm_api.py）
-- [ ] 添加前端单元测试
-- [ ] 完善错误处理和日志
+- [ ] DmInterface 工具调用可视化增强
+- [ ] 前端组件测试（Vitest/RTL）
+- [ ] 世界索引检索集成到 DM 提示词
 
 ### 中期（1月）
 - [ ] 使用 LLM 自动填充事件评分指标
@@ -327,5 +325,5 @@ python examples/global_director_demo.py
 ---
 
 **项目状态**: 🟢 活跃开发中
-**最后测试**: ✅ 2025-11-04 通过
+**最后测试**: ✅ 2025-11-11 通过
 **部署状态**: 🟡 本地部署就绪

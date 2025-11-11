@@ -1,4 +1,5 @@
 # Logger Import Fix Summary
+<!-- moved to docs/troubleshooting on 2025-11-11 -->
 
 ## 问题描述
 多个 Python 文件中错误地在函数或类的中间插入了以下代码段：

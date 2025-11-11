@@ -1,22 +1,12 @@
-# 快速启动指南
+# 已迁移：请使用主 README 的“快速开始”
 
-## 🚀 立即开始使用
+此文档对应的是旧的 CLI/交互式小说生成流程。当前项目的标准启动方式如下：
 
-### 步骤 1: 安装依赖 (首次运行)
+- `README.md` → 快速开始（后端 + 前端）
+- `docs/WORLDPACK_QUICKSTART.md` → 预生成世界（WorldPack）
+- `docs/implementation/PHASE2_API_ENDPOINTS.md` → 游戏 API 端点
 
-```bash
-# 进入项目目录
-cd /Users/lijianyong/mn_xiao_shuo
-
-# 创建虚拟环境
-python3 -m venv venv
-
-# 激活虚拟环境
-source venv/bin/activate
-
-# 安装依赖
-pip install -r requirements.txt
-```
+以下内容保留作历史参考。
 
 ### 步骤 2: 初始化数据库
 
@@ -164,7 +154,7 @@ python interactive_generator.py
 
 ---
 
-## 🎯 功能说明
+## 🎯 功能说明（历史版本）
 
 ### 自动化功能
 

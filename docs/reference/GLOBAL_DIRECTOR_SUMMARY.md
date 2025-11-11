@@ -1,4 +1,5 @@
 # Global Director 核心组件实现总结
+<!-- moved to docs/reference on 2025-11-11 -->
 
 **完成时间**: 2025-11-04
 **状态**: ✅ 全部完成

@@ -1,22 +1,10 @@
-# 🚀 立即开始
+# 已迁移：请从以下入口开始
 
-## ✅ 环境已配置
+- 主入口：`README.md`（项目概览与快速开始）
+- 世界生成：`docs/WORLDPACK_QUICKSTART.md`
+- 架构参考：`docs/architecture/ARCHITECTURE.md`
 
-使用 `uv` 创建的虚拟环境位于 `.venv/` 目录。
-
----
-
-## 📖 三种启动方式
-
-### 方式 1: 使用启动脚本（最简单）
-
-```bash
-# 初始化数据库（首次运行）
-./run.sh scripts/init_db.py
-
-# 启动交互式生成器
-./run.sh interactive_generator.py
-```
+本页原内容涉及旧的 CLI/交互式小说生成流程，保留作历史参考。
 
 ### 方式 2: 手动激活环境
 
@@ -44,7 +32,7 @@ uv run python3 interactive_generator.py
 
 ---
 
-## 🎮 使用流程
+## 🎮 使用流程（历史版本）
 
 ### 1. 首次运行：初始化数据库
 

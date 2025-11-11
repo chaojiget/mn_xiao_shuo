@@ -1,4 +1,5 @@
 # 🚀 快速启动 - Agent SDK + DeepSeek 模式
+<!-- moved to docs/setup on 2025-11-11 -->
 
 ## 一条命令启动完整系统
 

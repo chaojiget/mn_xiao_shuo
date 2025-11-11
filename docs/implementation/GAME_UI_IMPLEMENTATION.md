@@ -1,4 +1,5 @@
 # 游戏界面实现完成报告
+<!-- moved to docs/implementation on 2025-11-11 -->
 
 ## 概述
 

@@ -13,6 +13,7 @@ from models.world_models import (
     Faction,
     Location,
     LocationGenerationRequest,
+    PacingControl,
     POIGenerationRequest,
     Region,
     RegionGenerationRequest,
@@ -20,6 +21,7 @@ from models.world_models import (
     SyntaxPreferences,
     WorldGenerationRequest,
     WorldScaffold,
+    WritingStyle,
 )
 
 
@@ -76,10 +78,28 @@ class WorldGenerator:
     async def _generate_world_framework(self, request: WorldGenerationRequest) -> WorldScaffold:
         """生成世界框架"""
 
+        # 获取或创建节奏配置
+        pacing_config = request.pacing_config or PacingControl()
+
+        # 获取或创建文风配置
+        writing_style_config = request.writing_style_config or WritingStyle()
+
+        # 根据节奏配置调整 prompt
+        pacing_hints = self._get_pacing_hints(pacing_config)
+
+        # 根据文风配置调整 prompt
+        style_hints = self._get_writing_style_hints(writing_style_config)
+
         prompt = f"""你是世界设计专家。请生成一个{request.novel_type}类型的世界框架。
 
 **主题**: {request.theme}
 **基调**: {request.tone}
+
+**节奏要求**:
+{pacing_hints}
+
+**文风要求**:
+{style_hints}
 
 请严格按照以下JSON格式输出（不要包含markdown代码块标记）：
 
@@ -104,9 +124,9 @@ class WorldGenerator:
         "tone": "{request.tone}",
         "sensory": ["感官词1", "感官词2", "感官词3", "感官词4", "感官词5"],
         "syntax": {{
-            "avg_sentence_len": 18,
-            "prefer_active": true,
-            "paragraph_rhythm": "varied"
+            "avg_sentence_len": {pacing_config.avg_sentence_len},
+            "prefer_active": {str(pacing_config.prefer_active_voice).lower()},
+            "paragraph_rhythm": "{pacing_config.paragraph_rhythm}"
         }},
         "imagery": ["意象词1", "意象词2", "意象词3"],
         "metaphor_patterns": ["比喻模式1", "比喻模式2"]
@@ -118,6 +138,7 @@ class WorldGenerator:
 2. 保持{request.tone}的基调
 3. sensory词要具体、可感知（视觉/听觉/嗅觉/触觉/温度）
 4. 禁忌规则要有游戏机制意义（如"无火把夜行-2感知"）
+5. 世界设计要符合节奏要求
 """
 
         response = await self.llm.generate(
@@ -127,13 +148,15 @@ class WorldGenerator:
         # 解析JSON
         data = json.loads(response.strip())
 
-        # 构建StyleBible
+        # 构建StyleBible（包含节奏配置和文风配置）
         style_bible = StyleBible(
             tone=data["style_bible"]["tone"],
             sensory=data["style_bible"]["sensory"],
             syntax=SyntaxPreferences(**data["style_bible"]["syntax"]),
             imagery=data["style_bible"].get("imagery"),
             metaphor_patterns=data["style_bible"].get("metaphor_patterns"),
+            pacing=pacing_config,  # 添加节奏配置
+            writing_style=writing_style_config,  # 添加文风配置
         )
 
         # 构建WorldScaffold
@@ -154,6 +177,131 @@ class WorldGenerator:
         )
 
         return world
+
+    def _get_pacing_hints(self, pacing: PacingControl) -> str:
+        """根据节奏配置生成提示文本"""
+
+        hints = []
+
+        # 全局节奏
+        global_pace_hints = {
+            "slow": "- 整体节奏舒缓，重视细节描写和氛围营造",
+            "moderate": "- 整体节奏适中，描写和动作平衡",
+            "fast": "- 整体节奏紧凑，聚焦关键事件和行动",
+            "varied": "- 整体节奏富有变化，张弛有度",
+        }
+        hints.append(global_pace_hints[pacing.global_pace])
+
+        # 句法节奏
+        if pacing.avg_sentence_len < 15:
+            hints.append("- 使用短句，简洁有力")
+        elif pacing.avg_sentence_len > 25:
+            hints.append("- 使用长句，营造流畅感")
+        else:
+            hints.append(f"- 平均句长{pacing.avg_sentence_len}字左右")
+
+        # 段落节奏
+        paragraph_hints = {
+            "staccato": "- 段落短促有力，制造紧张感",
+            "varied": "- 段落长短结合，富有节奏变化",
+            "flowing": "- 段落流畅舒展，营造沉浸感",
+            "mixed": "- 段落风格混合，根据场景灵活调整",
+        }
+        hints.append(paragraph_hints[pacing.paragraph_rhythm])
+
+        # 场景节奏
+        if pacing.description_ratio < 0.3:
+            hints.append("- 描写简洁，聚焦动作")
+        elif pacing.description_ratio > 0.6:
+            hints.append("- 描写丰富，营造画面感")
+
+        if pacing.action_density > 0.7:
+            hints.append("- 动作密集，保持紧张感")
+        elif pacing.action_density < 0.3:
+            hints.append("- 动作舒缓，留出思考空间")
+
+        # 事件节奏
+        if pacing.event_frequency > 0.7:
+            hints.append("- 事件频繁，情节密集")
+        elif pacing.event_frequency < 0.3:
+            hints.append("- 事件稀疏，注重日常")
+
+        conflict_hints = {
+            "steady": "- 冲突强度稳定",
+            "escalating": "- 冲突逐步升级",
+            "wave": "- 冲突呈波浪式起伏",
+            "burst": "- 冲突突发爆发",
+        }
+        hints.append(conflict_hints[pacing.conflict_intensity_curve])
+
+        return "\n".join(hints)
+
+    def _get_writing_style_hints(self, style: WritingStyle) -> str:
+        """根据文风配置生成提示文本"""
+
+        hints = []
+
+        # 文风类型
+        style_type_hints = {
+            "classical": "- 文风：古典文言，使用文言句式和雅词",
+            "archaic": "- 文风：古风白话，具有古韵但易读",
+            "modern": "- 文风：现代白话，简洁明快",
+            "poetic": "- 文风：诗意优美，富有意境和美感",
+            "vernacular": "- 文风：口语化，贴近日常对话",
+            "literary": "- 文风：文学性，注重表达的艺术性",
+            "cinematic": "- 文风：镜头感，画面感强烈",
+        }
+        hints.append(style_type_hints[style.style_type])
+
+        # 词汇难度
+        vocab_hints = {
+            "simple": "- 用词简单易懂，避免生僻字",
+            "moderate": "- 用词适中，兼顾表达力和可读性",
+            "advanced": "- 用词高级，使用较为复杂的词汇",
+            "archaic": "- 用词古雅，使用古典词汇和雅语",
+        }
+        hints.append(vocab_hints[style.vocabulary_level])
+
+        # 修辞手法
+        if style.use_metaphor:
+            hints.append("- 使用比喻手法增强表现力")
+        if style.use_personification:
+            hints.append("- 使用拟人手法使描写生动")
+        if style.use_parallelism:
+            hints.append("- 使用排比句式增强气势")
+        if style.use_allusion:
+            hints.append("- 使用典故增加文化底蕴")
+
+        # 句式特点
+        if style.classical_syntax:
+            hints.append("- 使用古典句式（倒装、省略等）")
+        if style.four_character_phrases:
+            hints.append("- 多用四字成语和词组")
+        if style.poetic_language:
+            hints.append("- 使用诗化语言，富有韵律感")
+
+        # 叙事视角
+        pov_hints = {
+            "first": "- 叙事视角：第一人称（我）",
+            "third_limited": "- 叙事视角：第三人称限知（他/她，只知主角所知）",
+            "third_omniscient": "- 叙事视角：第三人称全知（可知所有角色内心）",
+        }
+        hints.append(pov_hints[style.narrative_pov])
+
+        # 描写风格
+        desc_hints = {
+            "minimalist": "- 描写极简，只写关键",
+            "balanced": "- 描写适度，详略得当",
+            "lush": "- 描写丰富，细节充分",
+            "ornate": "- 描写华丽，辞藻精美",
+        }
+        hints.append(desc_hints[style.description_style])
+
+        # 文化背景
+        if style.cultural_flavor:
+            hints.append(f"- 文化背景：{style.cultural_flavor}")
+
+        return "\n".join(hints)
 
     async def _generate_regions(
         self, world_id: str, count: int, theme: str, novel_type: str

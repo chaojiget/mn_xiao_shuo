@@ -8,11 +8,111 @@ from typing import Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, Field
 
+# ============ 文风控制 ============
+
+
+class WritingStyle(BaseModel):
+    """文风配置"""
+
+    # 文风类型
+    style_type: Literal[
+        "classical",  # 古典文言
+        "archaic",  # 古风白话
+        "modern",  # 现代白话
+        "poetic",  # 诗意优美
+        "vernacular",  # 口语化
+        "literary",  # 文学性
+        "cinematic",  # 镜头感
+    ] = "modern"
+
+    # 用词偏好
+    vocabulary_level: Literal["simple", "moderate", "advanced", "archaic"] = Field(
+        default="moderate", description="词汇难度（simple=简单/moderate=适中/advanced=高级/archaic=古雅）"
+    )
+
+    # 修辞手法
+    use_metaphor: bool = Field(default=True, description="使用比喻")
+    use_personification: bool = Field(default=True, description="使用拟人")
+    use_parallelism: bool = Field(default=False, description="使用排比")
+    use_allusion: bool = Field(default=False, description="使用典故")
+
+    # 句式偏好
+    classical_syntax: bool = Field(default=False, description="使用古典句式（如倒装、省略）")
+    four_character_phrases: bool = Field(default=False, description="使用四字成语/词组")
+    poetic_language: bool = Field(default=False, description="使用诗化语言")
+
+    # 叙事视角
+    narrative_pov: Literal["first", "third_limited", "third_omniscient"] = Field(
+        default="third_limited", description="叙事视角（第一人称/第三人称限知/第三人称全知）"
+    )
+
+    # 描写风格
+    description_style: Literal["minimalist", "balanced", "lush", "ornate"] = Field(
+        default="balanced", description="描写风格（极简/平衡/丰富/华丽）"
+    )
+
+    # 文化背景
+    cultural_flavor: Optional[str] = Field(
+        default=None, description="文化背景风味（如'武侠'、'仙侠'、'赛博朋克'、'蒸汽朋克'）"
+    )
+
+
+# ============ 节奏控制 ============
+
+
+class PacingControl(BaseModel):
+    """节奏调控配置"""
+
+    # 全局节奏（整体快慢）
+    global_pace: Literal["slow", "moderate", "fast", "varied"] = "moderate"
+
+    # 句法节奏
+    avg_sentence_len: int = Field(default=18, ge=8, le=40, description="平均句长（字数）")
+    sentence_len_variance: float = Field(
+        default=0.3, ge=0.0, le=1.0, description="句长变化度（0=统一，1=极度多变）"
+    )
+    prefer_active_voice: bool = Field(default=True, description="优先使用主动语态")
+    paragraph_rhythm: Literal["staccato", "varied", "flowing", "mixed"] = Field(
+        default="varied", description="段落节奏（staccato=短促/varied=变化/flowing=流畅/mixed=混合）"
+    )
+
+    # 场景节奏
+    description_ratio: float = Field(
+        default=0.4, ge=0.1, le=0.8, description="描写占比（0.1=极简，0.8=浓墨重彩）"
+    )
+    action_density: float = Field(
+        default=0.5, ge=0.1, le=1.0, description="动作密度（0.1=舒缓，1.0=紧凑）"
+    )
+    dialogue_frequency: float = Field(
+        default=0.3, ge=0.0, le=0.7, description="对话频率（0=无对话，0.7=对话密集）"
+    )
+    scene_transition_speed: Literal["gradual", "moderate", "abrupt"] = Field(
+        default="moderate", description="场景切换速度"
+    )
+
+    # 事件节奏
+    event_frequency: float = Field(
+        default=0.5, ge=0.1, le=1.0, description="事件频率（每章预期事件数的倍数）"
+    )
+    conflict_intensity_curve: Literal["steady", "escalating", "wave", "burst"] = Field(
+        default="escalating", description="冲突强度曲线"
+    )
+    exposition_pace: Literal["upfront", "gradual", "minimal"] = Field(
+        default="gradual", description="信息揭示节奏"
+    )
+
+    # 时间感
+    time_compression: float = Field(
+        default=1.0, ge=0.1, le=10.0, description="时间压缩比（0.1=高度浓缩，10.0=极度拉长）"
+    )
+    skip_mundane: bool = Field(default=True, description="跳过日常琐事")
+
+
 # ============ 风格圣经 ============
 
 
 class SyntaxPreferences(BaseModel):
-    """句法偏好"""
+    """句法偏好（已废弃，保留向后兼容）"""
 
     avg_sentence_len: int = 18
     prefer_active: bool = True
@@ -24,9 +124,11 @@ class StyleBible(BaseModel):
 
     tone: str  # 基调: "冷冽、压抑、写实"
     sensory: List[str]  # 感官词集: ["寒气", "盐霜", "铁锈味"]
-    syntax: SyntaxPreferences
+    syntax: SyntaxPreferences  # 保留向后兼容
     imagery: Optional[List[str]] = None  # 意象词库
     metaphor_patterns: Optional[List[str]] = None  # 比喻模式
+    pacing: Optional[PacingControl] = None  # 节奏控制
+    writing_style: Optional[WritingStyle] = None  # 文风控制
 
 
 # ============ 世界脚手架 ============
@@ -449,6 +551,12 @@ class WorldGenerationRequest(BaseModel):
 
     # 风格偏好
     style_preferences: Optional[Dict[str, Any]] = None
+
+    # 节奏配置
+    pacing_config: Optional[PacingControl] = None
+
+    # 文风配置
+    writing_style_config: Optional[WritingStyle] = None
 
 
 class RegionGenerationRequest(BaseModel):

@@ -15,6 +15,8 @@ from pydantic import BaseModel
 from services.world_generation_job import create_world_generation_job
 from services.world_indexer import create_world_indexer
 from services.world_validator import WorldValidator
+from services.pacing_presets import PacingPresets
+from services.writing_style_presets import WritingStylePresets
 
 from models.world_pack import WorldGenerationRequest, WorldPack
 
@@ -335,3 +337,67 @@ async def get_world_stats(world_id: str):
     stats = indexer.get_stats(world_id)
 
     return stats
+
+
+# ============ 节奏预设 API ============
+
+
+@router.get("/pacing/presets")
+async def list_pacing_presets():
+    """
+    列出所有可用的节奏预设
+
+    Returns:
+        dict: 预设名称和详细信息
+    """
+    return PacingPresets.list_presets()
+
+
+@router.get("/pacing/presets/{preset_name}")
+async def get_pacing_preset(preset_name: str):
+    """
+    获取特定节奏预设的配置
+
+    Args:
+        preset_name: 预设名称（action/literary/epic/horror/detective/slice_of_life/balanced）
+
+    Returns:
+        PacingControl: 节奏配置对象
+    """
+    try:
+        preset = PacingPresets.get_preset(preset_name)
+        return preset.dict()
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"预设不存在: {preset_name}")
+
+
+# ============ 文风预设 API ============
+
+
+@router.get("/writing-style/presets")
+async def list_writing_style_presets():
+    """
+    列出所有可用的文风预设
+
+    Returns:
+        dict: 预设名称和详细信息
+    """
+    return WritingStylePresets.list_presets()
+
+
+@router.get("/writing-style/presets/{preset_name}")
+async def get_writing_style_preset(preset_name: str):
+    """
+    获取特定文风预设的配置
+
+    Args:
+        preset_name: 预设名称（如 web_novel_cool, classical_elegant 等）
+
+    Returns:
+        WritingStyle: 文风配置对象
+    """
+    try:
+        preset = WritingStylePresets.get_preset(preset_name)
+        return preset.dict()
+    except Exception as e:
+        raise HTTPException(status_code=404, detail=f"预设不存在: {preset_name}")

@@ -45,6 +45,8 @@ export function GenerateWorldDialog({
     num_locations: 10,
     num_npcs: 15,
     num_quests: 8,
+    pacing_preset: "balanced", // 节奏预设
+    writing_style_preset: "modern_literary", // 文风预设
   })
 
   const [generating, setGenerating] = useState(false)
@@ -204,6 +206,108 @@ export function GenerateWorldDialog({
                   </SelectContent>
                 </Select>
               </div>
+            </div>
+
+            {/* 节奏调控 */}
+            <div className="space-y-2">
+              <Label htmlFor="pacing" className="text-gray-300">
+                叙事节奏 ⚡
+              </Label>
+              <Select
+                value={formData.pacing_preset}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, pacing_preset: value })
+                }
+              >
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="balanced">平衡节奏（推荐）</SelectItem>
+                  <SelectItem value="action">动作快节奏</SelectItem>
+                  <SelectItem value="epic">史诗节奏</SelectItem>
+                  <SelectItem value="literary">文学慢节奏</SelectItem>
+                  <SelectItem value="horror">恐怖悬疑</SelectItem>
+                  <SelectItem value="detective">推理节奏</SelectItem>
+                  <SelectItem value="slice_of_life">日常节奏</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* 文风选择 */}
+            <div className="space-y-2">
+              <Label htmlFor="writing_style" className="text-gray-300">
+                写作文风 ✍️
+              </Label>
+              <Select
+                value={formData.writing_style_preset}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, writing_style_preset: value })
+                }
+              >
+                <SelectTrigger className="bg-slate-700 border-slate-600 text-white">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="web_novel_cool">
+                    <div className="flex flex-col">
+                      <span className="font-medium">🔥 网文爽文</span>
+                      <span className="text-xs text-gray-400">装逼打脸、爽点密集、四字成语多</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="web_novel_warm">
+                    <div className="flex flex-col">
+                      <span className="font-medium">☀️ 网文温情</span>
+                      <span className="text-xs text-gray-400">温馨日常、对话丰富、第一人称</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="web_novel_dark">
+                    <div className="flex flex-col">
+                      <span className="font-medium">🌑 网文黑暗</span>
+                      <span className="text-xs text-gray-400">阴暗压抑、写实残酷、镜头感强</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="classical_elegant">
+                    <div className="flex flex-col">
+                      <span className="font-medium">📜 古典雅致</span>
+                      <span className="text-xs text-gray-400">文言白话、典雅庄重、使用典故</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="archaic_vernacular">
+                    <div className="flex flex-col">
+                      <span className="font-medium">🏛️ 古风白话</span>
+                      <span className="text-xs text-gray-400">古风韵味、易读易懂、四字词多</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="modern_literary">
+                    <div className="flex flex-col">
+                      <span className="font-medium">📖 现代文学（默认）</span>
+                      <span className="text-xs text-gray-400">现代白话、文学性强、适合大众</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="poetic_beauty">
+                    <div className="flex flex-col">
+                      <span className="font-medium">🌸 诗意优美</span>
+                      <span className="text-xs text-gray-400">诗化语言、意境悠远、美感十足</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="cinematic_thriller">
+                    <div className="flex flex-col">
+                      <span className="font-medium">🎬 镜头感惊悚</span>
+                      <span className="text-xs text-gray-400">画面感强、极简风格、镜头语言</span>
+                    </div>
+                  </SelectItem>
+                  <SelectItem value="vernacular_humorous">
+                    <div className="flex flex-col">
+                      <span className="font-medium">😄 口语化幽默</span>
+                      <span className="text-xs text-gray-400">口语表达、幽默诙谐、接地气</span>
+                    </div>
+                  </SelectItem>
+                </SelectContent>
+              </Select>
+              <p className="text-xs text-gray-500">
+                💡 文风控制用词、句式、修辞手法等，决定叙述风格
+              </p>
             </div>
 
             <div className="grid grid-cols-3 gap-4">

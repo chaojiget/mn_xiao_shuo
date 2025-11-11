@@ -280,7 +280,15 @@ class DMAgentLangChain:
         logger.debug(f"🗺️  当前位置: {game_state.get('player', {}).get('location', '未知')}")
         logger.debug(f"🎯 回合数: {game_state.get('turn_number', 0)}")
 
-        # 设置当前会话
+        # 🔥 将 game_state 转换为 GameState 对象并设置到上下文
+        from game.game_tools import GameState
+        from agents.game_tools_langchain import set_state
+
+        state_obj = GameState(**game_state)
+        set_state(state_obj)  # 工具将直接修改这个对象
+        logger.debug(f"✅ GameState 对象已设置到上下文 (session_id: {session_id})")
+
+        # 设置当前会话（兼容旧代码）
         set_current_session_id(session_id)
 
         # 构建系统提示词

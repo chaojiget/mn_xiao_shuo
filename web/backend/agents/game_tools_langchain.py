@@ -16,18 +16,48 @@ from langchain_core.tools import ToolException
 
 # ============= 游戏状态管理 =============
 
-# 使用 contextvars 管理当前会话ID（线程安全）
-current_session_context = contextvars.ContextVar("current_session_id", default="default")
+# 🔥 使用 contextvars 存储 GameState 对象（而非 session_id）
+from game.game_tools import GameState
+
+current_state_context = contextvars.ContextVar("current_game_state", default=None)
 
 
 def get_current_session_id() -> str:
-    """获取当前会话ID"""
-    return current_session_context.get()
+    """获取当前会话ID（兼容旧代码）"""
+    state = current_state_context.get()
+    return state.session_id if state else "default"
 
 
 def set_current_session_id(session_id: str):
-    """设置当前会话ID"""
-    current_session_context.set(session_id)
+    """设置当前会话ID（兼容旧代码，已废弃）"""
+    # 这个方法保留是为了向后兼容，实际应使用 set_state()
+    pass
+
+
+def get_state_object() -> GameState:
+    """
+    获取当前 GameState 对象（新接口）
+
+    Returns:
+        GameState 对象（可直接修改）
+
+    Raises:
+        ValueError: 如果 GameState 未设置
+    """
+    state = current_state_context.get()
+    if state is None:
+        raise ValueError("GameState 未设置！请先调用 set_state()")
+    return state
+
+
+def set_state(state: GameState):
+    """
+    设置当前 GameState 对象（新接口）
+
+    Args:
+        state: GameState 对象
+    """
+    current_state_context.set(state)
 
 
 # 全局状态管理器实例（在应用启动时初始化）
@@ -100,36 +130,50 @@ def get_player_state() -> Dict[str, Any]:
 
 
 @tool
-def add_item(item_id: str, quantity: int = 1) -> Dict[str, Any]:
-    """向玩家背包添加物品
+def add_item(item_id: str, name: str, quantity: int = 1) -> Dict[str, Any]:
+    """向玩家背包添加物品（直接修改 GameState）
 
     Args:
         item_id: 物品ID
+        name: 物品名称
         quantity: 数量，默认为1
 
     Returns:
         操作结果
     """
-    session_id = get_current_session_id()
-    state = get_state()
-    player = state.setdefault("player", {})
-    inventory = player.setdefault("inventory", [])
+    from game.game_tools import InventoryItem
+
+    # 🔥 获取 GameState 对象（而非 Dict）
+    state: GameState = get_state_object()
 
     # 查找已存在的物品
-    existing = next((item for item in inventory if item["id"] == item_id), None)
+    existing = next(
+        (item for item in state.player.inventory if item.id == item_id),
+        None
+    )
 
     if existing:
-        existing["quantity"] += quantity
+        existing.quantity += quantity
+        new_quantity = existing.quantity
     else:
-        inventory.append({"id": item_id, "name": item_id, "quantity": quantity})
+        # 创建新物品（Pydantic 模型）
+        new_item = InventoryItem(
+            id=item_id,
+            name=name,
+            quantity=quantity,
+            description=f"{name}",
+            type="misc"
+        )
+        state.player.inventory.append(new_item)
+        new_quantity = quantity
 
-    # 保存到数据库
-    save_state(state)
+    # 🔥 不需要 save_state - 因为直接修改了 GameState 对象
 
     return {
         "success": True,
-        "message": f"获得了 {quantity} 个 {item_id}",
-        "current_inventory": inventory,
+        "message": f"获得了 {quantity} 个 {name}",
+        "item_id": item_id,
+        "new_quantity": new_quantity
     }
 
 

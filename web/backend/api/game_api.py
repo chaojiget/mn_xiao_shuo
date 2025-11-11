@@ -218,8 +218,18 @@ async def process_turn_stream(request: GameTurnRequestModel):
                 # 发送SSE格式数据
                 yield f"data: {json.dumps(chunk, ensure_ascii=False)}\n\n"
 
+            # 🔥 从上下文获取最终状态（包含所有工具修改）
+            from agents.game_tools_langchain import get_state_object
+            try:
+                final_state = get_state_object()  # 获取工具修改后的 GameState
+                logger.debug(f"✅ 从上下文获取到最终状态，背包物品数: {len(final_state.player.inventory)}")
+            except ValueError:
+                # 如果上下文中没有 GameState，使用原始状态
+                logger.warning("⚠️  上下文中没有 GameState，使用原始状态")
+                final_state = state
+
             # 发送最终状态
-            yield f"data: {json.dumps({'type': 'state', 'state': state.model_dump()}, ensure_ascii=False)}\n\n"
+            yield f"data: {json.dumps({'type': 'state', 'state': final_state.model_dump()}, ensure_ascii=False)}\n\n"
 
         except Exception as e:
             error_data = {

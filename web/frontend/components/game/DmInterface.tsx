@@ -9,7 +9,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Zap, Pause, Play, StopCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { useGameStore } from '@/stores/gameStore';
-import { DmMessage, ToolCall, GameState } from '@/types/game';
+import { DmMessage, GameState } from '@/types/game';
 import { cn } from '@/lib/utils';
 import { ThinkingProcess, ThinkingStep } from '@/components/chat/ThinkingProcess';
 import { SuggestionChips, Suggestion } from '@/components/chat/SuggestionChips';
@@ -21,6 +21,7 @@ import { Conversation, ConversationContent, ConversationScrollButton } from '@/c
 import { PromptInput, PromptInputTextarea, PromptInputToolbar, PromptInputSubmit } from '@/components/ui/shadcn-io/ai/prompt-input';
 import { Loader } from '@/components/ui/shadcn-io/ai/loader';
 import { ErrorDisplay } from '@/components/ui/shadcn-io/ai/error-display';
+import { ToolCallTimeline, ToolCallTimelineItem } from './ToolCallTimeline';
 
 interface DmInterfaceProps {
   sessionId?: string;
@@ -37,9 +38,9 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isPaused, setIsPaused] = useState(false); // 🔥 流式暂停状态
-  const [canStop, setCanStop] = useState(false); // 🔥 是否可以停止
   const [lastError, setLastError] = useState<string | null>(null); // 🔥 最后的错误
   const [lastInput, setLastInput] = useState<string>(''); // 🔥 保存最后的输入用于重试
+  const [toolTimeline, setToolTimeline] = useState<ToolCallTimelineItem[]>([]); // 🔥 工具调用追踪
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const wsRef = useRef<WebSocket | null>(null);
   const taskCounterRef = useRef<number>(0); // 🔥 任务计数器，确保唯一 ID
@@ -81,6 +82,60 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   useEffect(() => {
     scrollToBottom();
   }, [messages, streamingText]);
+
+  useEffect(() => {
+    // 会话变化时重置工具追踪
+    setToolTimeline([]);
+  }, [sessionId]);
+
+  const MAX_TOOL_HISTORY = 20;
+
+  const recordToolCall = (name: string, input: unknown) => {
+    const id = `tool_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    const newEntry: ToolCallTimelineItem = {
+      id,
+      name,
+      status: 'running',
+      input,
+      startedAt: Date.now(),
+    };
+    setToolTimeline((prev) => {
+      const updated = [...prev, newEntry];
+      return updated.slice(-MAX_TOOL_HISTORY);
+    });
+  };
+
+  const finalizeToolCall = (name: string, output: unknown, error?: string) => {
+    setToolTimeline((prev) => {
+      const updated = [...prev];
+      for (let i = updated.length - 1; i >= 0; i--) {
+        if (updated[i].name === name && updated[i].status === 'running') {
+          updated[i] = {
+            ...updated[i],
+            status: error ? 'error' : 'success',
+            output: output ?? updated[i].output,
+            error: error || undefined,
+            finishedAt: Date.now(),
+          };
+          return updated;
+        }
+      }
+
+      const fallback: ToolCallTimelineItem = {
+        id: `tool_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+        name,
+        status: error ? 'error' : 'success',
+        input: undefined,
+        output,
+        error: error || undefined,
+        startedAt: Date.now(),
+        finishedAt: Date.now(),
+      };
+
+      const appended = [...prev, fallback];
+      return appended.slice(-MAX_TOOL_HISTORY);
+    });
+  };
 
   // WebSocket 连接
   useEffect(() => {
@@ -178,29 +233,33 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
         break;
 
       case 'tool_call':
+        const toolName = data.tool_name || data.tool || '未知工具';
+        const toolInput = data.arguments || data.input || data.payload || {};
         const toolMessage: DmMessage = {
           id: Date.now().toString(),
           role: 'assistant',
-          content: `使用工具: ${data.tool_name}`,
+          content: `使用工具: ${toolName}`,
           timestamp: Date.now(),
           tool_calls: [
             {
               id: Date.now().toString(),
               type: 'function',
               function: {
-                name: data.tool_name,
-                arguments: JSON.stringify(data.arguments || {})
+                name: toolName,
+                arguments: JSON.stringify(toolInput || {})
               }
             },
           ],
         };
         setMessages((prev) => [...prev, toolMessage]);
 
+        recordToolCall(toolName, toolInput);
+
         // 添加到任务列表
         taskCounterRef.current += 1; // 🔥 增加计数器
         const newTask: Task = {
           id: `task_${Date.now()}_${taskCounterRef.current}`,
-          title: `工具调用: ${data.tool_name}`,
+          title: `工具调用: ${toolName}`,
           status: 'in_progress',
           type: 'code',
           timestamp: Date.now(),
@@ -216,6 +275,12 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
               ? { ...task, status: 'completed' as const }
               : task
           )
+        );
+
+        finalizeToolCall(
+          data.tool_name || data.tool || '未知工具',
+          data.output ?? data.result ?? data.response ?? data.content,
+          data.error
         );
         break;
 
@@ -327,15 +392,18 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
                 fullNarration += data.content;
                 setStreamingText(fullNarration);
               } else if (data.type === 'tool_call') {
+                const toolName = data.tool || data.tool_name || '未知工具';
+                const toolInput = data.input || data.arguments || data.payload || {};
                 taskCounterRef.current += 1; // 🔥 增加计数器
                 const newTask: Task = {
                   id: `task_${Date.now()}_${taskCounterRef.current}`,
-                  title: `工具调用: ${data.tool}`,
+                  title: `工具调用: ${toolName}`,
                   status: 'in_progress',
                   type: 'code',
                   timestamp: Date.now(),
                 };
                 setTasks((prev) => [...prev, newTask]);
+                recordToolCall(toolName, toolInput);
               } else if (data.type === 'tool_result') {
                 setTasks((prev) =>
                   prev.map((task) =>
@@ -343,6 +411,11 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
                       ? { ...task, status: 'completed' as const }
                       : task
                   )
+                );
+                finalizeToolCall(
+                  data.tool || data.tool_name || '未知工具',
+                  data.output ?? data.result ?? data.response ?? data.content,
+                  data.error
                 );
               } else if (data.type === 'state') {
                 // 更新游戏状态
@@ -466,92 +539,108 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
 
   return (
     <div className={cn('flex flex-col h-full bg-background border rounded-lg', className)}>
-      {/* 消息区域 - 使用 shadcn AI Conversation */}
-      <Conversation className="flex-1">
-        <ConversationContent>
-          <div className="space-y-4">
-            {/* 思考过程展示 */}
-            {(thinkingSteps.length > 0 || isThinking) && (
-              <ThinkingProcess steps={thinkingSteps} isThinking={isThinking} />
-            )}
+      <div className="flex-1 overflow-hidden">
+        <div className="grid h-full gap-4 lg:grid-cols-[minmax(0,1fr)_320px]">
+          {/* 消息区域 - 使用 shadcn AI Conversation */}
+          <div className="flex min-h-0 flex-col">
+            <Conversation className="flex-1">
+              <ConversationContent>
+                <div className="space-y-4">
+                  {/* 思考过程展示 */}
+                  {(thinkingSteps.length > 0 || isThinking) && (
+                    <ThinkingProcess steps={thinkingSteps} isThinking={isThinking} />
+                  )}
 
-            {/* 任务进度展示 */}
-            {tasks.length > 0 && <TaskProgress tasks={tasks} />}
+                  {/* 任务进度展示 */}
+                  {tasks.length > 0 && <TaskProgress tasks={tasks} />}
 
-            {/* 历史消息 */}
-            {messages.map(renderMessage)}
+                  {/* 历史消息 */}
+                  {messages.map(renderMessage)}
 
-            {/* 🔥 错误显示 */}
-            {lastError && (
-              <ErrorDisplay
-                error={lastError}
-                onRetry={handleRetry}
-                retryText="重试上一次请求"
-              />
-            )}
+                  {/* 🔥 错误显示 */}
+                  {lastError && (
+                    <ErrorDisplay
+                      error={lastError}
+                      onRetry={handleRetry}
+                      retryText="重试上一次请求"
+                    />
+                  )}
 
-            {/* 流式文本（打字机效果） - 使用 shadcn AI Message */}
-            {isTyping && streamingText && (
-              <Message from="assistant">
-                <MessageAvatar name="DM" />
-                <MessageContent>
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="flex items-center gap-2">
-                      <Loader size={12} />
-                      <span className="text-xs text-muted-foreground">正在生成...</span>
+                  {/* 流式文本（打字机效果） - 使用 shadcn AI Message */}
+                  {isTyping && streamingText && (
+                    <Message from="assistant">
+                      <MessageAvatar name="DM" />
+                      <MessageContent>
+                        <div className="mb-2 flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Loader size={12} />
+                            <span className="text-xs text-muted-foreground">正在生成...</span>
+                          </div>
+                          {/* 流式控制按钮 */}
+                          <div className="flex items-center gap-1">
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => setIsPaused(!isPaused)}
+                              title={isPaused ? '继续' : '暂停'}
+                            >
+                              {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="ghost"
+                              className="h-6 w-6 p-0"
+                              onClick={() => {
+                                if (wsRef.current) {
+                                  wsRef.current.send(JSON.stringify({ type: 'cancel' }));
+                                }
+                                setIsTyping(false);
+                                setStreamingText('');
+                              }}
+                              title="停止生成"
+                            >
+                              <StopCircle className="w-3 h-3" />
+                            </Button>
+                          </div>
+                        </div>
+                        {/* 打字机效果 */}
+                        <TypewriterText
+                          text={streamingText}
+                          speed={20}
+                          paused={isPaused}
+                          markdown={true}
+                        />
+                      </MessageContent>
+                    </Message>
+                  )}
+
+                  {/* 正在输入指示器 */}
+                  {isTyping && !streamingText && (
+                    <div className="flex items-center gap-2 px-4 py-2 text-muted-foreground">
+                      <Loader size={16} />
+                      <span className="text-sm">DM 正在思考...</span>
                     </div>
-                    {/* 流式控制按钮 */}
-                    <div className="flex items-center gap-1">
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={() => setIsPaused(!isPaused)}
-                        title={isPaused ? '继续' : '暂停'}
-                      >
-                        {isPaused ? <Play className="w-3 h-3" /> : <Pause className="w-3 h-3" />}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="ghost"
-                        className="h-6 w-6 p-0"
-                        onClick={() => {
-                          if (wsRef.current) {
-                            wsRef.current.send(JSON.stringify({ type: 'cancel' }));
-                          }
-                          setIsTyping(false);
-                          setStreamingText('');
-                        }}
-                        title="停止生成"
-                      >
-                        <StopCircle className="w-3 h-3" />
-                      </Button>
-                    </div>
-                  </div>
-                  {/* 打字机效果 */}
-                  <TypewriterText
-                    text={streamingText}
-                    speed={20}
-                    paused={isPaused}
-                    markdown={true}
-                  />
-                </MessageContent>
-              </Message>
-            )}
+                  )}
+                </div>
+              </ConversationContent>
 
-            {/* 正在输入指示器 */}
-            {isTyping && !streamingText && (
-              <div className="flex items-center gap-2 px-4 py-2 text-muted-foreground">
-                <Loader size={16} />
-                <span className="text-sm">DM 正在思考...</span>
-              </div>
-            )}
+              {/* 滚动到底部按钮 */}
+              <ConversationScrollButton />
+            </Conversation>
           </div>
-        </ConversationContent>
 
-        {/* 滚动到底部按钮 */}
-        <ConversationScrollButton />
-      </Conversation>
+          {/* 工具调用追踪 */}
+          <div className="hidden lg:flex">
+            <ToolCallTimeline calls={toolTimeline} className="w-full" />
+          </div>
+        </div>
+      </div>
+
+      {/* 小屏工具追踪 */}
+      <div className="border-t p-4 lg:hidden">
+        <ToolCallTimeline calls={toolTimeline} />
+      </div>
 
       {/* 输入区域 - 使用 shadcn AI PromptInput */}
       <div className="border-t p-4 space-y-3">

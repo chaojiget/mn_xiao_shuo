@@ -1,0 +1,19 @@
+# 小型复用组合包示例（对齐模板字段）
+world_setting: ./../../docs/templates/world_setting.yaml
+
+items:
+  - ./../../docs/templates/item.yaml
+
+skills:
+  - ./../../docs/templates/skill.yaml
+
+talents:
+  - ./../../docs/templates/talent.yaml
+
+scenes:
+  - ./../../docs/templates/scene.yaml
+
+# 说明：
+# - 引擎侧可将 items 注入 LootTable；
+# - scenes 绑定到 forest biome 的指定 POI；
+# - 通过 tags/power_ceiling 做全局一致性校验；

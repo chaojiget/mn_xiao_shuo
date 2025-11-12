@@ -37,8 +37,8 @@ export const PromptInputTextarea = ({
   onChange,
   className,
   placeholder = '输入你的行动... (Shift+Enter 换行)',
-  minHeight = 48,
-  maxHeight = 164,
+  minHeight = 40,
+  maxHeight = 128,
   ...props
 }: PromptInputTextareaProps) => {
   const handleKeyDown: KeyboardEventHandler<HTMLTextAreaElement> = (e) => {
@@ -60,8 +60,9 @@ export const PromptInputTextarea = ({
   return (
     <Textarea
       className={cn(
-        'w-full resize-none rounded-none border-none p-3 shadow-none outline-none ring-0',
-        'field-sizing-content max-h-[6lh] bg-transparent dark:bg-transparent',
+        'w-full resize-none rounded-none border-none p-2 shadow-none outline-none ring-0',
+        'min-h-[40px] text-sm leading-5',
+        'field-sizing-content max-h-[4lh] bg-transparent dark:bg-transparent',
         'focus-visible:ring-0',
         className
       )}

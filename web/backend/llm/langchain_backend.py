@@ -13,6 +13,7 @@ from langchain_openai import ChatOpenAI
 from config.settings import settings
 
 from utils.logger import get_logger
+from utils.json_utils import json_loads_relaxed
 
 from .base import LLMBackend, LLMMessage, LLMResponse, LLMTool
 
@@ -186,7 +187,7 @@ class LangChainBackend(LLMBackend):
             if content.endswith("```"):
                 content = content[:-3]
 
-            return json.loads(content.strip())
+            return json_loads_relaxed(content)
         except json.JSONDecodeError as e:
             raise ValueError(f"无法解析 JSON 响应: {e}\n响应内容: {response.content}")
 

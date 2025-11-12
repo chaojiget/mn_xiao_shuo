@@ -1,5 +1,5 @@
 /**
- * DM 交互界面组件
+ * 叙事交互界面组件
  * 支持 WebSocket 实时连接、流式文本显示、工具调用可视化
  */
 
@@ -21,13 +21,14 @@ import { Conversation, ConversationContent, ConversationScrollButton } from '@/c
 import { PromptInput, PromptInputTextarea, PromptInputToolbar, PromptInputSubmit } from '@/components/ui/shadcn-io/ai/prompt-input';
 import { Loader } from '@/components/ui/shadcn-io/ai/loader';
 import { ErrorDisplay } from '@/components/ui/shadcn-io/ai/error-display';
+import { apiClient } from '@/lib/api-client';
 
-interface DmInterfaceProps {
+interface NarrativeInterfaceProps {
   sessionId?: string;
   className?: string;
 }
 
-export function DmInterface({ sessionId, className }: DmInterfaceProps) {
+export function NarrativeInterface({ sessionId, className }: NarrativeInterfaceProps) {
   const [messages, setMessages] = useState<DmMessage[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -35,6 +36,7 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   const [thinkingSteps, setThinkingSteps] = useState<ThinkingStep[]>([]);
   const [isThinking, setIsThinking] = useState(false);
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
+  const [suggestionsLoading, setSuggestionsLoading] = useState(false);
   const [tasks, setTasks] = useState<Task[]>([]);
   const [isPaused, setIsPaused] = useState(false); // 🔥 流式暂停状态
   const [canStop, setCanStop] = useState(false); // 🔥 是否可以停止
@@ -228,15 +230,15 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   // 从 gameState.log 恢复历史消息
   useEffect(() => {
     if (gameState?.log && gameState.log.length > 0 && messages.length === 0) {
-      console.log('[DmInterface] 恢复历史消息:', gameState.log.length);
-      console.log('[DmInterface] 第一条log数据结构:', gameState.log[0]);
+      console.log('[NarrativeInterface] 恢复历史消息:', gameState.log.length);
+      console.log('[NarrativeInterface] 第一条log数据结构:', gameState.log[0]);
 
       const historicalMessages: DmMessage[] = gameState.log.map((entry: any, index: number) => {
         // 🔥 优先使用完整字段：content > text > message
         const messageContent = entry.content || entry.text || entry.message || '';
 
         if (index === 0) {
-          console.log('[DmInterface] 第一条消息内容长度:', messageContent.length, '字符');
+          console.log('[NarrativeInterface] 第一条消息内容长度:', messageContent.length, '字符');
         }
 
         return {
@@ -353,6 +355,8 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
         setMessages((prev) => [...prev, dmMessage]);
         setStreamingText('');
         setIsTyping(false);
+        // 🔥 叙述结束后刷新建议（优先从可供性提取）
+        refreshSuggestionsFromState();
         break;
 
       case 'tool_call':
@@ -378,6 +382,8 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       case 'state_update':
         if (data.state) {
           setGameState(data.state as GameState);
+          // 🔥 状态更新后刷新建议
+          refreshSuggestionsFromState(data.state as GameState);
         }
         break;
 
@@ -496,6 +502,8 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
                 // 更新游戏状态
                 if (data.state) {
                   setGameState(data.state);
+                  // 🔥 状态更新后刷新建议
+                  refreshSuggestionsFromState(data.state as GameState);
                 }
               } else if (data.type === 'done') {
                 // 完成信号，可以处理metadata
@@ -524,6 +532,8 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
 
       setStreamingText('');
       setIsTyping(false);
+      // 🔥 叙述结束后刷新建议（HTTP 流式路径）
+      await refreshSuggestionsFromState();
 
     } catch (error) {
       console.error('[DM Interface] 发送消息失败:', error);
@@ -569,11 +579,11 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       );
     }
 
-    // 普通消息（使用 shadcn AI Elements）
-    return (
+  // 普通消息（使用 shadcn AI Elements）
+  return (
       <Message key={message.id} from={message.role as 'user' | 'assistant'}>
         <MessageAvatar
-          name={isPlayer ? '玩家' : 'DM'}
+          name={isPlayer ? '玩家' : '旁白'}
         />
         <MessageContent>
           <p className="whitespace-pre-wrap">{message.content}</p>
@@ -586,25 +596,52 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   const generateSuggestions = () => {
     if (!gameState) return;
 
-    const newSuggestions: Suggestion[] = [
-      {
-        id: 'explore',
-        text: '探索周围环境',
-        category: 'explore',
-      },
-      {
-        id: 'talk',
-        text: '与 NPC 对话',
-        category: 'question',
-      },
-      {
-        id: 'search',
-        text: '搜索线索',
-        category: 'action',
-      },
+    const base: Suggestion[] = [
+      { id: 'explore', text: '探索周围环境', category: 'explore' },
+      { id: 'talk', text: '与 NPC 对话', category: 'question' },
+      { id: 'search', text: '搜索线索', category: 'action' },
     ];
+    setSuggestions(base);
+  };
 
-    setSuggestions(newSuggestions);
+  // 从可供性接口刷新建议（若失败则回退到内置建议）
+  const refreshSuggestionsFromState = async (state?: GameState) => {
+    const s = state || gameState;
+    if (!s) return generateSuggestions();
+
+    try {
+      setSuggestionsLoading(true);
+      const locationId = (s as any)?.player?.location || s.map?.currentNodeId;
+      if (!locationId) {
+        generateSuggestions();
+        return;
+      }
+
+      const res = await apiClient.extractAffordances({
+        locationId,
+        characterState: (s as any)?.player,
+      });
+
+      const affordanceTexts: string[] = Array.isArray((res as any)?.suggested_actions)
+        ? (res as any).suggested_actions as string[]
+        : [];
+
+      const existingTexts = new Set(suggestions.map((x) => x.text));
+      const appended: Suggestion[] = affordanceTexts
+        .filter((t) => t && !existingTexts.has(t))
+        .slice(0, 6)
+        .map((t, i) => ({ id: `aff_${i}_${Date.now()}`, text: t, category: 'action' as const }));
+
+      if (suggestions.length === 0 && appended.length === 0) {
+        generateSuggestions();
+      } else {
+        setSuggestions(suggestions.length > 0 ? [...suggestions, ...appended] : appended);
+      }
+    } catch (e) {
+      generateSuggestions();
+    } finally {
+      setSuggestionsLoading(false);
+    }
   };
 
   // 处理建议点击
@@ -620,11 +657,11 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
           <div className="space-y-4">
             {/* 思考过程展示 */}
             {(thinkingSteps.length > 0 || isThinking) && (
-              <ThinkingProcess steps={thinkingSteps} isThinking={isThinking} />
+              <ThinkingProcess steps={thinkingSteps} isThinking={isThinking} defaultExpanded={false} />
             )}
 
             {/* 任务进度展示 */}
-            {tasks.length > 0 && <TaskProgress tasks={tasks} />}
+            {tasks.length > 0 && <TaskProgress tasks={tasks} defaultExpanded={false} />}
 
             {/* 历史消息 */}
             {messages.map(renderMessage)}
@@ -641,7 +678,7 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
             {/* 流式文本（打字机效果） - 使用 shadcn AI Message */}
             {isTyping && streamingText && (
               <Message from="assistant">
-                <MessageAvatar name="DM" />
+                <MessageAvatar name="旁白" />
                 <MessageContent>
                   <div className="flex items-center justify-between mb-2">
                     <div className="flex items-center gap-2">
@@ -691,7 +728,7 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
             {isTyping && !streamingText && (
               <div className="flex items-center gap-2 px-4 py-2 text-muted-foreground">
                 <Loader size={16} />
-                <span className="text-sm">DM 正在思考...</span>
+                <span className="text-sm">叙事引擎正在思考...</span>
               </div>
             )}
           </div>
@@ -702,38 +739,41 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
       </Conversation>
 
       {/* 输入区域 - 使用 shadcn AI PromptInput */}
-      <div className="border-t p-4 space-y-3">
+      <div className="border-t p-2 space-y-2">
         {/* AI 建议芯片 */}
         {suggestions.length > 0 && (
           <SuggestionChips
             suggestions={suggestions}
             onSelect={handleSuggestionClick}
-            onRefresh={generateSuggestions}
+            onRefresh={refreshSuggestionsFromState}
+            isLoading={suggestionsLoading}
           />
         )}
 
-        <PromptInput onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
+        <PromptInput className="relative" onSubmit={(e) => { e.preventDefault(); handleSendMessage(); }}>
           <PromptInputTextarea
+            className="pr-10"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder="输入你的行动... (Shift+Enter 换行)"
             disabled={isTyping || !gameState}
           />
-          <PromptInputToolbar>
-            <div className="flex items-center gap-2 text-xs text-muted-foreground">
-              <div
-                className={cn(
-                  'w-2 h-2 rounded-full',
-                  isConnected ? 'bg-green-500' : 'bg-red-500'
-                )}
-              />
-              <span>{isConnected ? 'WebSocket 已连接' : '使用 HTTP 模式'}</span>
-            </div>
-            <PromptInputSubmit
-              status={isTyping ? 'streaming' : 'idle'}
-              disabled={isTyping || !input.trim() || !gameState}
+          {/* 内联状态与发送按钮（覆盖到输入框底部，减少总高度） */}
+          <div className="absolute left-2 bottom-1 flex items-center gap-2 text-[11px] text-muted-foreground pointer-events-none">
+            <div
+              className={cn(
+                'w-1.5 h-1.5 rounded-full',
+                isConnected ? 'bg-green-500' : 'bg-red-500'
+              )}
             />
-          </PromptInputToolbar>
+            <span className="leading-none">{isConnected ? 'WebSocket 已连接' : '使用 HTTP 模式'}</span>
+          </div>
+          <PromptInputSubmit
+            className="absolute right-1.5 bottom-1.5 h-7 w-7 p-0"
+            size="icon"
+            status={isTyping ? 'streaming' : 'idle'}
+            disabled={isTyping || !input.trim() || !gameState}
+          />
         </PromptInput>
       </div>
     </div>

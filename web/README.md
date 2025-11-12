@@ -1,6 +1,6 @@
 # Web 应用概览（Next.js + FastAPI）
 
-> 当前应用聚焦于 AI 世界生成与单人跑团游戏：支持 WorldPack 世界预生成、AI DM 实时叙事、任务/NPC/存档系统等。
+> 当前应用聚焦于 AI 世界生成与单人跑团游戏：支持 WorldPack 世界预生成、叙事引擎实时叙事、任务/NPC/存档系统等。
 
 ## 技术栈
 
@@ -22,12 +22,12 @@
 web/
 ├── backend/               # FastAPI 后端
 │   ├── api/              # API 路由（game_api.py / dm_api.py / worlds_api.py）
-│   ├── agents/           # DM Agent 与工具
+│   ├── agents/           # 叙事引擎 Agent 与工具
 │   ├── services/         # 世界生成/索引/存档等服务
 │   └── models/           # Pydantic 数据模型
 └── frontend/              # Next.js 前端
     ├── app/              # 页面（/game, /worlds 等）
-    └── components/game/  # 游戏组件（DmInterface/QuestTracker等）
+    └── components/game/  # 游戏组件（NarrativeInterface/QuestTracker等）
 ```
 
 ## 快速开始
@@ -58,13 +58,13 @@ npm run dev
 
 - 世界管理（WorldPack）: http://localhost:3000/worlds
 - 跑团游戏页面: http://localhost:3000/game/play
-- DM WebSocket 路由: [backend/api/dm_api.py](backend/api/dm_api.py)
+- 叙事引擎 WebSocket 路由: [backend/api/dm_api.py](backend/api/dm_api.py)
 - API 端点文档: [docs/implementation/PHASE2_API_ENDPOINTS.md](../docs/implementation/PHASE2_API_ENDPOINTS.md)
 
 ## 功能特性
 
 - ✅ WorldPack 世界预生成（地点/NPC/任务/掉落/遭遇）
-- ✅ AI DM 实时叙事（WebSocket 流式）
+- ✅ 叙事引擎实时叙事（WebSocket 流式）
 - ✅ 任务与NPC系统
 - ✅ 自动保存 + 多槽位存档
 - ✅ 世界语义索引与检索（默认在线嵌入：qwen/qwen3-embedding-8b，经 OpenRouter）

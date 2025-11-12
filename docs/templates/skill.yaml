@@ -1,0 +1,39 @@
+# 技能模板（主动/被动均可，含叙事检定）
+id: skill.shadow_step
+name: 影步
+school: shadow  # fire|ice|nature|holy|shadow|arcane|martial|social
+grade: C        # E|D|C|B|A|S
+
+type: active    # active|passive|reaction
+cost:
+  resource: stamina
+  amount: 15
+  narrative_cost: "短时阴寒侵袭，体温降低"
+
+targeting: self # self|single|aoe|zone
+cooldown: 2
+
+scaling:
+  with_stats: ["dexterity", "will"]
+  context_bonus: ["in_mist:+1 beat range", "in_shadow:+1 step"]
+
+checks:
+  narrative: [{ kind: stealth, difficulty: medium }]
+  failure:
+    backlash: "引来低语，附近守望者提高警戒"
+
+effects:
+  movement: { tiles: 3, ignore_obstacles: true }
+  status_self: [{ id: status.shrouded, duration: 1 }]
+
+unlock_reqs:
+  - "world.power_ceiling>=3"
+  - "faction.reputation.cabal>=10 or quest.shadow_tutor.completed"
+
+narrative_beats:
+  - "雾影翻涌，你的身形短暂折入阴影的褶皱"
+  - "寒意沿臂而下，耳边浮现远古低语"
+
+versions:
+  - version: 1.0.0
+    balance_note: "中等位移+隐匿，受环境加强"

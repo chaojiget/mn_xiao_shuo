@@ -69,8 +69,8 @@
 
 ### **3. 流式控制按钮**
 
-#### **DmInterface 增强**
-- **文件**: `web/frontend/components/game/DmInterface.tsx`
+#### **NarrativeInterface 增强**
+- **文件**: `web/frontend/components/game/NarrativeInterface.tsx`
 - **新增按钮**:
   - **暂停/继续** (`Pause/Play`): 控制打字机效果
   - **停止** (`StopCircle`): 发送取消请求到后端
@@ -165,7 +165,7 @@ http://localhost:3000/game/play
 ### **调整打字机速度**
 
 ```typescript
-// 文件: web/frontend/components/game/DmInterface.tsx:510
+// 文件: web/frontend/components/game/NarrativeInterface.tsx:510
 <TypewriterText
   speed={20}  // 调整此值
   // speed=10: 快速

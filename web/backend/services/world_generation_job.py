@@ -6,6 +6,7 @@
 import asyncio
 import gzip
 import json
+import re
 import random
 import sqlite3
 import uuid
@@ -167,6 +168,86 @@ class WorldGenerationJob:
             await self._update_phase("FAILED", self.progress, f"生成失败: {str(e)}")
             raise
 
+    # ==================== JSON 解析增强 ====================
+    def _json_loads_relaxed(self, raw: str) -> Any:
+        """尽量从 LLM 输出中提取并解析为严格 JSON。
+
+        处理场景：
+        - 去除 ```json 代码块包裹
+        - 提取首个成对的大括号/中括号片段
+        - 修复常见问题：对象之间缺少逗号、结尾多余逗号
+        """
+        # 1) 快速路径
+        try:
+            return json.loads(raw)
+        except Exception:
+            pass
+
+        s = raw.strip()
+
+        # 2) 去代码块/围栏
+        s = s.replace("```json", "").replace("```", "").strip()
+
+        # 3) 提取第一个 JSON 片段（按括号配对，忽略字符串内部括号）
+        def extract_json_payload(text: str) -> str:
+            start_idx = None
+            for i, ch in enumerate(text):
+                if ch in "[{":
+                    start_idx = i
+                    break
+            if start_idx is None:
+                return text
+
+            stack = []
+            in_str = False
+            esc = False
+            for i in range(start_idx, len(text)):
+                c = text[i]
+                if in_str:
+                    if esc:
+                        esc = False
+                    elif c == "\\":
+                        esc = True
+                    elif c == '"':
+                        in_str = False
+                    continue
+                else:
+                    if c == '"':
+                        in_str = True
+                        continue
+                    if c in "[{":
+                        stack.append(c)
+                    elif c in "]}":
+                        if stack:
+                            stack.pop()
+                            if not stack:
+                                # 包含最后一个闭括号
+                                return text[start_idx : i + 1]
+            # 若未完全配对，返回原文
+            return text[start_idx:]
+
+        payload = extract_json_payload(s)
+
+        # 再尝试严格解析
+        try:
+            return json.loads(payload)
+        except Exception:
+            pass
+
+        # 4) 轻量修复：
+        #  - 去除结尾多余逗号: ,] 或 ,}
+        fixed = re.sub(r",\s*([}\]])", r"\1", payload)
+        #  - 在对象紧邻时补逗号: `}\s*\n\s*{` 或 `}\s+{`
+        fixed = re.sub(r"}\s*\n\s*{", "},{", fixed)
+        fixed = re.sub(r"}\s+{", "},{", fixed)
+
+        try:
+            return json.loads(fixed)
+        except Exception:
+            # 最后尝试再移除一次多余逗号
+            fixed2 = re.sub(r",\s*([}\]])", r"\1", fixed)
+            return json.loads(fixed2)
+
     async def _generate_outline(self):
         """生成世界框架"""
         prompt = f"""你是世界设计专家。请生成一个跑团游戏的世界框架。
@@ -202,7 +283,7 @@ class WorldGenerationJob:
             max_tokens=1500
         )
 
-        data = json.loads(response.content.strip())
+        data = self._json_loads_relaxed(response.content)
 
         # 创建 WorldMeta
         self.world_meta = WorldMeta(
@@ -257,7 +338,7 @@ class WorldGenerationJob:
             max_tokens=3000
         )
 
-        data = json.loads(response.content.strip())
+        data = self._json_loads_relaxed(response.content)
 
         for i, loc_data in enumerate(data[:num_locations]):
             # 创建 Location
@@ -330,7 +411,7 @@ class WorldGenerationJob:
             max_tokens=2500
         )
 
-        data = json.loads(response.content.strip())
+        data = self._json_loads_relaxed(response.content)
 
         # 创建地点名称到ID的映射
         location_map = {loc.name: loc.id for loc in self.locations}
@@ -399,7 +480,7 @@ class WorldGenerationJob:
             max_tokens=2500
         )
 
-        data = json.loads(response.content.strip())
+        data = self._json_loads_relaxed(response.content)
 
         for i, quest_data in enumerate(data[:num_quests]):
             objectives = [
@@ -518,23 +599,30 @@ class WorldGenerationJob:
             conn.close()
 
     async def _update_phase(self, phase: str, progress: float, message: str):
-        """更新任务阶段"""
+        """更新任务阶段并写入 world_generation_jobs（含错误信息）"""
         self.current_phase = phase
         self.progress = progress
+
+        # 如果失败，将 message 写入 error 列；否则为 None
+        error_msg: Optional[str] = message if phase == "FAILED" else None
 
         # 更新数据库
         conn = sqlite3.connect(self.db_path)
         cursor = conn.cursor()
 
         try:
-            cursor.execute("""
-                INSERT INTO world_generation_jobs (id, world_id, phase, progress, updated_at)
-                VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+            cursor.execute(
+                """
+                INSERT INTO world_generation_jobs (id, world_id, phase, progress, error, updated_at)
+                VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
                 ON CONFLICT(id) DO UPDATE SET
                     phase = excluded.phase,
                     progress = excluded.progress,
+                    error = excluded.error,
                     updated_at = CURRENT_TIMESTAMP
-            """, (self.job_id, self.world_id, phase, progress))
+                """,
+                (self.job_id, self.world_id, phase, progress, error_msg),
+            )
 
             conn.commit()
 

@@ -93,6 +93,63 @@ db = None
 world_db = None
 
 
+def _ensure_world_generation_schema(db_path: str):
+    """确保世界生成相关的表已创建（worlds、world_generation_jobs、world_kb 等）。
+
+    在开发/一键启动场景下，避免因为未手动迁移而导致 /api/worlds/* 接口 500。
+    """
+    import sqlite3
+    from pathlib import Path
+
+    conn = sqlite3.connect(db_path)
+    try:
+        cur = conn.cursor()
+        # 若主表不存在，直接应用完整 schema
+        cur.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='world_generation_jobs'"
+        )
+        jobs_exists = cur.fetchone() is not None
+
+        if not jobs_exists:
+            schema_path = Path(__file__).parent.parent.parent / "database" / "schema" / "world_generation.sql"
+            if not schema_path.exists():
+                logger.warning("未找到 world_generation.sql，跳过世界生成表初始化: %s", schema_path)
+                return
+            logger.info("应用世界生成 schema: %s", schema_path)
+            with open(schema_path, "r", encoding="utf-8") as f:
+                sql = f.read()
+            cur.executescript(sql)
+            conn.commit()
+            logger.info("✅ 世界生成相关表已创建")
+        else:
+            # 细粒度校验/迁移：补齐缺失列
+            # 1) world_generation_jobs.error 列
+            cur.execute("PRAGMA table_info('world_generation_jobs')")
+            job_cols = {row[1] for row in cur.fetchall()}  # row[1] 是列名
+            if "error" not in job_cols:
+                logger.info("迁移: 为 world_generation_jobs 增加 error 列")
+                cur.execute("ALTER TABLE world_generation_jobs ADD COLUMN error TEXT")
+                conn.commit()
+
+            # 2) worlds.status / worlds.updated_at 列（被写入于保存世界时）
+            cur.execute("PRAGMA table_info('worlds')")
+            world_cols = {row[1] for row in cur.fetchall()}
+            if "status" not in world_cols:
+                logger.info("迁移: 为 worlds 增加 status 列")
+                cur.execute("ALTER TABLE worlds ADD COLUMN status TEXT NOT NULL DEFAULT 'draft'")
+            if "updated_at" not in world_cols:
+                logger.info("迁移: 为 worlds 增加 updated_at 列")
+                cur.execute("ALTER TABLE worlds ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            if "created_at" not in world_cols:
+                logger.info("迁移: 为 worlds 增加 created_at 列")
+                cur.execute("ALTER TABLE worlds ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP")
+            conn.commit()
+    except Exception as e:
+        logger.error("初始化世界生成 schema 失败: %s", e, exc_info=True)
+    finally:
+        conn.close()
+
+
 class NovelCreateRequest(BaseModel):
     """创建小说请求"""
 
@@ -140,6 +197,9 @@ async def startup():
         db = Database(db_path=str(db_path))
         db.connect()
         logger.info(f"✅ 数据库已连接: {db_path}")
+
+        # 2.1 确保世界生成相关表存在
+        _ensure_world_generation_schema(str(db_path))
 
         # 3. 初始化世界数据库
         logger.info("初始化世界数据库...")

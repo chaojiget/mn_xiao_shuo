@@ -1,0 +1,25 @@
+# 天赋/特质模板（互斥/树形前置）
+id: talent.cold_blood
+name: 冷血
+branch: assassin  # warrior|assassin|mage|ranger|druid|warlock|bard|monk
+
+prerequisites: ["skill.shadow_step"]
+mutually_exclusive: ["talent.hot_blood"]
+
+bonuses:
+  crit_rate_pct: 8
+  chill_escalation: true  # 对“霜噬/寒冷”类效果有叠加收益
+
+drawbacks:
+  social_checks: { empathy: -1 }
+  narrative_cost: "情感钝化，特定社交分支更难"
+
+roleplay_prompts:
+  - "面对乞求时更趋冷静与功利，倾向选择效率"
+
+quest_hooks:
+  - "在‘遗物猎手’线中解锁暗杀路线"
+
+versions:
+  - version: 1.0.0
+    balance_note: "轻度数值提升+叙事代价"

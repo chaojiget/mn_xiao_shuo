@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { apiClient } from "@/lib/api-client"
+import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -49,6 +50,7 @@ interface GameSave {
 
 export default function SavesPage() {
   const router = useRouter()
+  const { toast } = useToast()
   const [saves, setSaves] = useState<GameSave[]>([])
   const [loading, setLoading] = useState(true)
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
@@ -90,7 +92,7 @@ export default function SavesPage() {
       }
     } catch (error) {
       console.error("加载存档失败:", error)
-      alert("加载存档失败，请重试")
+      toast({ title: "加载失败", description: "加载存档失败，请重试", variant: "destructive" })
     }
   }
 
@@ -109,7 +111,7 @@ export default function SavesPage() {
       }
     } catch (error) {
       console.error("删除存档失败:", error)
-      alert("删除存档失败，请重试")
+      toast({ title: "删除失败", description: "删除存档失败，请重试", variant: "destructive" })
     } finally {
       setDeleting(false)
     }
@@ -142,7 +144,7 @@ export default function SavesPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center">
+      <div className="min-h-screen app-gradient flex items-center justify-center">
         <div className="text-center space-y-4">
           <Loader2 className="w-12 h-12 text-purple-400 animate-spin mx-auto" />
           <p className="text-gray-300">加载存档中...</p>
@@ -152,7 +154,7 @@ export default function SavesPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+    <div className="min-h-screen app-gradient pt-16 px-4 md:px-6 pb-8">
       <div className="max-w-7xl mx-auto space-y-6">
         {/* 头部 */}
         <div className="flex items-center justify-between">
@@ -178,7 +180,7 @@ export default function SavesPage() {
 
         {/* 存档列表 */}
         {saves.length === 0 ? (
-          <Card className="bg-slate-800/50 border-slate-700/50 backdrop-blur">
+          <Card className="surface-card">
             <CardContent className="py-16 text-center">
               <Save className="w-16 h-16 text-gray-500 mx-auto mb-4" />
               <h3 className="text-xl font-semibold text-gray-300 mb-2">还没有存档</h3>
@@ -197,7 +199,7 @@ export default function SavesPage() {
             {saves.map((save) => (
               <Card
                 key={save.save_id}
-                className="bg-slate-800/50 border-slate-700/50 hover:border-purple-500/50 transition-all backdrop-blur group"
+                className="surface-card surface-card-hover group"
               >
                 <CardHeader>
                   <div className="flex items-start justify-between">
@@ -209,10 +211,7 @@ export default function SavesPage() {
                         槽位 {save.slot_id}
                       </CardDescription>
                     </div>
-                    <Badge
-                      variant="outline"
-                      className="bg-purple-500/20 text-purple-300 border-purple-500/30"
-                    >
+                    <Badge variant="outline" className="bg-slate-800/60 text-gray-200 border-slate-600/50">
                       Lv.{save.metadata.level || 1}
                     </Badge>
                   </div>
@@ -289,8 +288,8 @@ export default function SavesPage() {
 
         {/* 提示区域 */}
         {saves.length > 0 && saves.length >= 10 && (
-          <Card className="bg-amber-500/10 border-amber-500/30 backdrop-blur">
-            <CardContent className="py-4">
+          <Card className="surface-card">
+            <CardContent className="py-4 border-l-2 border-amber-400/60">
               <div className="flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-amber-400 mt-0.5" />
                 <div>

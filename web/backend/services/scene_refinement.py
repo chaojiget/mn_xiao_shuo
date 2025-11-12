@@ -8,6 +8,7 @@ import os
 from typing import Any, Dict, List, Optional
 
 from database.world_db import WorldDatabase
+from utils.json_utils import json_loads_relaxed
 
 from models.world_models import (
     AffordanceExtractionRequest,
@@ -153,7 +154,7 @@ class SceneRefinement:
             prompt=prompt, model=self.default_model, temperature=0.75, max_tokens=800
         )
 
-        content = json.loads(response.strip())
+        content = json_loads_relaxed(response)
 
         return DetailLayer(
             id=f"{location.id}-structure",
@@ -219,7 +220,7 @@ class SceneRefinement:
             prompt=prompt, model=self.default_model, temperature=0.8, max_tokens=1000
         )
 
-        content = json.loads(response.strip())
+        content = json_loads_relaxed(response)
 
         return DetailLayer(
             id=f"{location.id}-sensory",
@@ -280,7 +281,7 @@ class SceneRefinement:
             prompt=prompt, model=self.default_model, temperature=0.75, max_tokens=1200
         )
 
-        content = json.loads(response.strip())
+        content = json_loads_relaxed(response)
 
         return DetailLayer(
             id=f"{location.id}-affordance",
@@ -353,7 +354,7 @@ class SceneRefinement:
             prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=1000
         )
 
-        content = json.loads(response.strip())
+        content = json_loads_relaxed(response)
 
         return DetailLayer(
             id=f"{location.id}-cinematic",
@@ -437,7 +438,7 @@ class SceneRefinement:
             prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=800
         )
 
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
         return data.get("affordances", [])
 
     def _generate_suggested_actions(

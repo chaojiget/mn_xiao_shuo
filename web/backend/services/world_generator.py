@@ -7,6 +7,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
+from utils.json_utils import json_loads_relaxed
 
 from models.world_models import (
     POI,
@@ -150,7 +151,7 @@ class WorldGenerator:
         )
 
         # 解析JSON
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
 
         # 构建StyleBible（包含节奏配置和文风配置）
         style_bible = StyleBible(
@@ -345,7 +346,7 @@ class WorldGenerator:
         )
 
         # 解析JSON
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
 
         regions = []
         for i, item in enumerate(data):
@@ -414,7 +415,7 @@ class WorldGenerator:
         )
 
         # 解析JSON
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
 
         factions = []
         for i, item in enumerate(data):
@@ -472,7 +473,7 @@ class WorldGenerator:
             prompt=prompt, model=self.default_model, temperature=0.7, max_tokens=1000
         )
 
-        relationships = json.loads(response.strip())
+        relationships = json_loads_relaxed(response)
 
         # 应用到factions
         for faction in factions:
@@ -528,7 +529,7 @@ class WorldGenerator:
             prompt=prompt, model=self.default_model, temperature=0.8, max_tokens=2000
         )
 
-        vocab = json.loads(response.strip())
+        vocab = json_loads_relaxed(response)
         return vocab
 
     # ============ 地点生成 ============
@@ -579,7 +580,7 @@ class WorldGenerator:
             prompt=prompt, model=self.default_model, temperature=0.85, max_tokens=2500
         )
 
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
 
         locations = []
         for i, item in enumerate(data):
@@ -651,7 +652,7 @@ class WorldGenerator:
             prompt=prompt, model=self.default_model, temperature=0.85, max_tokens=2000
         )
 
-        data = json.loads(response.strip())
+        data = json_loads_relaxed(response)
 
         pois = []
         for i, item in enumerate(data):

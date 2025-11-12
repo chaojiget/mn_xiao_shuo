@@ -10,7 +10,7 @@ export default function WorldsPage() {
   const [showGenerateDialog, setShowGenerateDialog] = useState(false)
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 p-8">
+    <div className="min-h-screen app-gradient pt-16 px-4 md:px-6 pb-8">
       <div className="container mx-auto max-w-7xl">
         {/* Header */}
         <div className="mb-8 flex items-center justify-between">

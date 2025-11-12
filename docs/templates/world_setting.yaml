@@ -1,0 +1,36 @@
+# 世界设定模板（最小完备）
+id: setting.dark_forest
+title: 暗影森林
+tone: dark  # epic|dark|cozy|mystery|whimsical
+difficulty: normal  # story|normal|hard
+power_ceiling: 3  # 1-5，影响技能/天赋/物品强度上限
+
+themes: ["腐化", "迷雾", "古老遗迹"]
+taboos: ["亵渎古树", "公开施展血咒"]
+aesthetics: ["冷色雾光", "苔藓石碑", "破碎祭坛"]
+
+cosmology:
+  energy_sources: ["月影", "残存的德鲁伊仪式"]
+  rules: ["血之代价可换取力量", "古树守护者感知禁忌"]
+
+factions:
+  - id: faction.wardens
+    name: 林地守望者
+    goals: ["净化腐化源", "守护迁徙通道"]
+    methods: ["设伏", "誓约束缚"]
+  - id: faction.cabal
+    name: 迷雾集会
+    goals: ["重启古祭仪", "夺取月影碎片"]
+    methods: ["血契", "阴影交易"]
+
+constraints:
+  - "血咒必有代价（生理/社交/命运之一）"
+  - "公开违禁将引发派系通缉"
+
+narrative_guides:
+  causality: "强力行为必须可追溯到清晰的代价或条件"
+  information: "关于古祭与腐化的知识分层解锁，不一次性倾倒"
+  tone_consistency: "避免跳脱、保持阴翳与压迫感的基调"
+
+version: 1.0.0
+changelog: ["初版设定蓝本"]

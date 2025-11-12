@@ -2,15 +2,16 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Save, Upload, RotateCcw, Home, MapPin, Scroll, Heart, Coins, Zap, FolderOpen } from "lucide-react"
+import { Save, Upload, RotateCcw, Home, MapPin, Scroll, Heart, Coins, Zap, FolderOpen, User, MessageSquare, ListChecks } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
-import { DmInterface } from "@/components/game/DmInterface"
+import { NarrativeInterface } from "@/components/game/NarrativeInterface"
 import { QuestTracker } from "@/components/game/QuestTracker"
 import { SaveGameDialog } from "@/components/game/SaveGameDialog"
 import { useGameStore } from "@/stores/gameStore"
 import { useToast } from "@/hooks/use-toast"
 import { apiClient } from "@/lib/api-client"
+import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 
 export default function GamePlayPage() {
   const router = useRouter()
@@ -20,6 +21,8 @@ export default function GamePlayPage() {
   const [isInitializing, setIsInitializing] = useState(true)
   const [worldId, setWorldId] = useState<string | null>(null)
   const [forceReset, setForceReset] = useState(false)
+  const [openStatusSheet, setOpenStatusSheet] = useState(false)
+  const [openQuestsSheet, setOpenQuestsSheet] = useState(false)
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search)
@@ -210,7 +213,7 @@ export default function GamePlayPage() {
 
   if (isInitializing) {
     return (
-      <div className="h-screen flex items-center justify-center bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+      <div className="h-screen flex items-center justify-center app-gradient">
         <div className="text-center space-y-4">
           <div className="w-16 h-16 border-4 border-purple-500 border-t-transparent rounded-full animate-spin mx-auto" />
           <p className="text-lg font-semibold text-white">正在初始化游戏...</p>
@@ -225,16 +228,16 @@ export default function GamePlayPage() {
   )?.name || "未知地点"
 
   return (
-    <div className="h-screen flex flex-col bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900">
+    <div className="h-screen flex flex-col app-gradient pb-16 lg:pb-0">
       {/* 顶部状态栏 */}
-      <header className="bg-slate-900/80 backdrop-blur-sm border-b border-purple-500/30 px-4 py-3">
+      <header className="bg-slate-900/80 backdrop-blur-sm border-b border-slate-700/50 px-4 py-3">
         <div className="flex items-center justify-between">
           {/* 左侧：世界信息 */}
           <div className="flex items-center gap-4">
             <Button
               variant="ghost"
               size="icon"
-              className="text-purple-400 hover:text-purple-300 hover:bg-purple-500/10"
+              className="text-purple-300 hover:text-white hover:bg-slate-800"
               onClick={() => router.push("/")}
             >
               <Home className="w-5 h-5" />
@@ -301,10 +304,10 @@ export default function GamePlayPage() {
       {/* 主要内容区域 */}
       <div className="flex-1 flex overflow-hidden">
         {/* 左侧边栏 - 玩家状态 */}
-        <aside className="w-80 bg-slate-900/50 backdrop-blur-sm border-r border-purple-500/30 p-4 overflow-y-auto hidden lg:block">
+        <aside className="w-80 bg-slate-900/50 backdrop-blur-sm border-r border-slate-700/50 p-4 overflow-y-auto hidden lg:block">
           <div className="space-y-4">
             {/* 玩家状态卡片 */}
-            <Card className="bg-slate-800/50 border-purple-500/30">
+            <Card className="surface-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-white">角色状态</CardTitle>
               </CardHeader>
@@ -382,7 +385,7 @@ export default function GamePlayPage() {
             </Card>
 
             {/* 背包 */}
-            <Card className="bg-slate-800/50 border-purple-500/30">
+            <Card className="surface-card">
               <CardHeader className="pb-3">
                 <CardTitle className="text-lg text-white">背包</CardTitle>
               </CardHeader>
@@ -412,18 +415,164 @@ export default function GamePlayPage() {
           </div>
         </aside>
 
-        {/* 中间主要内容 - DM 界面 */}
+        {/* 中间主要内容 - 叙事界面 */}
         <main className="flex-1 overflow-hidden">
-          <DmInterface sessionId={sessionId} className="h-full border-0 rounded-none" />
+          <NarrativeInterface sessionId={sessionId} className="h-full border-0 rounded-none" />
         </main>
 
         {/* 右侧边栏 - 任务 */}
-        <aside className="w-96 bg-slate-900/50 backdrop-blur-sm border-l border-purple-500/30 overflow-hidden hidden xl:flex flex-col">
+        <aside className="w-96 bg-slate-900/50 backdrop-blur-sm border-l border-slate-700/50 overflow-hidden hidden xl:flex flex-col">
           <div className="flex-1 min-h-0">
             <QuestTracker className="h-full border-0 rounded-none" />
           </div>
         </aside>
       </div>
+
+      {/* 移动端底部工具栏 */}
+      <div className="fixed bottom-0 left-0 right-0 border-t border-slate-700/50 bg-slate-900/80 backdrop-blur-sm lg:hidden z-40">
+        <div className="grid grid-cols-3">
+          <button
+            className="py-2.5 flex flex-col items-center justify-center text-gray-300 hover:text-white"
+            onClick={() => setOpenStatusSheet(true)}
+            aria-label="打开状态面板"
+          >
+            <User className="w-5 h-5" />
+            <span className="text-xs mt-0.5">状态</span>
+          </button>
+          <button
+            className="py-2.5 flex flex-col items-center justify-center text-gray-300 hover:text-white"
+            onClick={() => {
+              const el = document.querySelector('[role="log"]') as HTMLElement | null;
+              if (el) el.scrollTop = el.scrollHeight;
+            }}
+            aria-label="切换叙事"
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span className="text-xs mt-0.5">叙事</span>
+          </button>
+          <button
+            className="py-2.5 flex flex-col items-center justify-center text-gray-300 hover:text-white"
+            onClick={() => setOpenQuestsSheet(true)}
+            aria-label="打开任务"
+          >
+            <ListChecks className="w-5 h-5" />
+            <span className="text-xs mt-0.5">任务</span>
+          </button>
+        </div>
+      </div>
+
+      {/* 状态面板 Sheet（移动端） */}
+      <Sheet open={openStatusSheet} onOpenChange={setOpenStatusSheet}>
+        <SheetContent side="bottom" className="p-0">
+          <SheetHeader className="px-4 pt-3 pb-2 border-b border-slate-700/50">
+            <SheetTitle>角色状态</SheetTitle>
+          </SheetHeader>
+          <div className="p-4 space-y-4 max-h-[65vh] overflow-y-auto">
+            {/* 玩家状态卡片（与左侧栏一致） */}
+            <Card className="surface-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-white">角色状态</CardTitle>
+              </CardHeader>
+              <CardContent className="space-y-3">
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <div className="flex items-center gap-2 text-red-400">
+                      <Heart className="w-4 h-4" />
+                      <span>生命值</span>
+                    </div>
+                    <span className="text-white font-medium">
+                      {gameState?.player?.hp || 0}/{gameState?.player?.maxHp || 0}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-red-500 to-red-400 transition-all"
+                      style={{ width: `${((gameState?.player?.hp || 0) / (gameState?.player?.maxHp || 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <div className="flex items-center justify-between text-sm mb-1">
+                    <div className="flex items-center gap-2 text-blue-400">
+                      <Zap className="w-4 h-4" />
+                      <span>体力</span>
+                    </div>
+                    <span className="text-white font-medium">
+                      {gameState?.player?.stamina || 0}/{gameState?.player?.maxStamina || 0}
+                    </span>
+                  </div>
+                  <div className="h-2 bg-slate-700 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-blue-500 to-blue-400 transition-all"
+                      style={{ width: `${((gameState?.player?.stamina || 0) / (gameState?.player?.maxStamina || 1)) * 100}%` }}
+                    />
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-between pt-2 border-t border-slate-700">
+                  <div className="flex items-center gap-2 text-yellow-400">
+                    <Coins className="w-4 h-4" />
+                    <span className="text-sm">金币</span>
+                  </div>
+                  <span className="text-white font-medium">
+                    {gameState?.player?.inventory?.find((i: any) => i.id === "gold_coin")?.quantity || 0}
+                  </span>
+                </div>
+
+                {gameState?.player?.traits && gameState.player.traits.length > 0 && (
+                  <div className="pt-2 border-t border-slate-700">
+                    <div className="text-sm text-gray-400 mb-2">特质</div>
+                    <div className="flex flex-wrap gap-2">
+                      {gameState.player.traits.map((trait: string, i: number) => (
+                        <span key={i} className="px-2 py-1 bg-purple-500/20 text-purple-300 text-xs rounded-md border border-purple-500/30">
+                          {trait}
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+
+            {/* 背包 */}
+            <Card className="surface-card">
+              <CardHeader className="pb-3">
+                <CardTitle className="text-lg text-white">背包</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-2 max-h-60 overflow-y-auto">
+                  {gameState?.player?.inventory && gameState.player.inventory.length > 0 ? (
+                    gameState.player.inventory.map((item: any, i: number) => (
+                      <div key={i} className="flex items-center justify-between p-2 bg-slate-700/50 rounded-lg">
+                        <div className="flex-1">
+                          <div className="text-sm text-white">{item.name}</div>
+                          {item.description && (<div className="text-xs text-gray-400">{item.description}</div>)}
+                        </div>
+                        <div className="text-sm text-gray-300">×{item.quantity}</div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-sm text-gray-500 text-center py-4">背包为空</div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* 任务 Sheet（移动端） */}
+      <Sheet open={openQuestsSheet} onOpenChange={setOpenQuestsSheet}>
+        <SheetContent side="bottom" className="p-0">
+          <SheetHeader className="px-4 pt-3 pb-2 border-b border-slate-700/50">
+            <SheetTitle>任务</SheetTitle>
+          </SheetHeader>
+          <div className="p-2 max-h-[70vh] overflow-y-auto">
+            <QuestTracker className="h-full border-0 rounded-none" />
+          </div>
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }

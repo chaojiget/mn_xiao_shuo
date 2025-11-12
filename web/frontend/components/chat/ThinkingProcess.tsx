@@ -22,10 +22,11 @@ interface ThinkingProcessProps {
   steps: ThinkingStep[];
   isThinking?: boolean;
   className?: string;
+  defaultExpanded?: boolean;
 }
 
-export function ThinkingProcess({ steps, isThinking = false, className }: ThinkingProcessProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+export function ThinkingProcess({ steps, isThinking = false, className, defaultExpanded = true }: ThinkingProcessProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   if (steps.length === 0 && !isThinking) {
     return null;

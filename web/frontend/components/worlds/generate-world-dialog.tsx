@@ -404,7 +404,7 @@ export function GenerateWorldDialog({
             )}
 
             {status?.error && (
-              <div className="bg-red-900/20 border border-red-500 rounded p-3 text-red-400 text-sm">
+              <div className="surface-card border-l-2 border-red-500/60 rounded p-3 text-red-400 text-sm">
                 {status.error}
               </div>
             )}

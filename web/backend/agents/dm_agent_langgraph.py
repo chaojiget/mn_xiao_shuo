@@ -345,8 +345,8 @@ class DMGraphAgent:
                                 if content:
                                     # 检测是否为工具返回的中断信号
                                     try:
-                                        import json as _json
-                                        parsed = _json.loads(content) if isinstance(content, str) else None
+                                        from utils.json_utils import json_loads_relaxed as _relaxed
+                                        parsed = _relaxed(content) if isinstance(content, str) else None
                                     except Exception:
                                         parsed = None
                                     if isinstance(parsed, dict) and parsed.get("type") == "interrupt":

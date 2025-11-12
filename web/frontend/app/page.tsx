@@ -1,16 +1,61 @@
 "use client"
 
+import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Sparkles, Play, Map, ArrowRight, Globe, Save } from "lucide-react"
+import { Sparkles, Play, Map, ArrowRight, Globe, Save, Clock } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
+import { apiClient } from "@/lib/api-client"
 
 export default function Home() {
   const router = useRouter()
+  const [hasAutoSave, setHasAutoSave] = useState(false)
+  const [autoTurn, setAutoTurn] = useState<number | null>(null)
+  const [checking, setChecking] = useState(true)
+
+  useEffect(() => {
+    const checkAuto = async () => {
+      try {
+        const res = await apiClient.getLatestAutoSave()
+        if (res.success && res.game_state) {
+          setHasAutoSave(true)
+          setAutoTurn(res.game_state.turn_number || res.turn_number || 0)
+        } else {
+          setHasAutoSave(false)
+        }
+      } catch (e) {
+        setHasAutoSave(false)
+      } finally {
+        setChecking(false)
+      }
+    }
+    checkAuto()
+  }, [])
 
   return (
-    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4">
+    <main className="min-h-screen app-gradient flex items-center justify-center pt-16 px-4 md:px-6 pb-8">
       <div className="max-w-4xl w-full space-y-12">
+        {/* 顶部继续上次提示 */}
+        {!checking && hasAutoSave && (
+          <Card className="surface-card">
+            <CardContent className="py-3 px-4 flex items-center justify-between">
+              <div className="flex items-center gap-3 text-gray-200">
+                <Clock className="w-4 h-4 text-purple-300" />
+                <span>
+                  继续上次游戏 · 第 {autoTurn ?? 0} 回合
+                </span>
+              </div>
+              <Button
+                size="sm"
+                className="bg-purple-600 hover:bg-purple-700"
+                onClick={() => router.push("/game/play")}
+              >
+                一键进入
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Button>
+            </CardContent>
+          </Card>
+        )}
         {/* Logo与标题 */}
         <div className="text-center space-y-6">
           <div className="w-24 h-24 bg-gradient-to-br from-purple-500 to-pink-600 rounded-3xl flex items-center justify-center mx-auto shadow-2xl">
@@ -21,7 +66,7 @@ export default function Home() {
               AI 世界生成器
             </h1>
             <p className="text-xl text-gray-300">
-              预生成完整世界 · AI地下城主 · 沉浸式冒险体验
+              预生成完整世界 · 冒险体验
             </p>
           </div>
         </div>
@@ -29,7 +74,7 @@ export default function Home() {
         {/* 主要功能卡片 */}
         <div className="grid md:grid-cols-3 gap-6">
           <Card
-            className="bg-slate-800/50 border-purple-500/30 hover:border-purple-500/60 transition-all cursor-pointer group backdrop-blur"
+            className="surface-card surface-card-hover transition-all cursor-pointer group"
             onClick={() => router.push("/worlds")}
           >
             <CardContent className="pt-8 pb-8">
@@ -52,7 +97,7 @@ export default function Home() {
           </Card>
 
           <Card
-            className="bg-slate-800/50 border-pink-500/30 hover:border-pink-500/60 transition-all cursor-pointer group backdrop-blur"
+            className="surface-card surface-card-hover transition-all cursor-pointer group"
             onClick={() => router.push("/game/play")}
           >
             <CardContent className="pt-8 pb-8">
@@ -61,9 +106,9 @@ export default function Home() {
                   <Play className="w-8 h-8 text-pink-400" />
                 </div>
                 <div>
-                  <h3 className="text-2xl font-bold text-white mb-2">开始游戏</h3>
+                  <h3 className="text-2xl font-bold text-white mb-2">开始冒险</h3>
                   <p className="text-gray-400">
-                    在AI地下城主的引导下，探索动态世界，体验冒险故事
+                    探索动态世界，由叙事引擎驱动的沉浸式故事
                   </p>
                 </div>
                 <div className="flex items-center text-pink-400 group-hover:text-pink-300">
@@ -75,7 +120,7 @@ export default function Home() {
           </Card>
 
           <Card
-            className="bg-slate-800/50 border-blue-500/30 hover:border-blue-500/60 transition-all cursor-pointer group backdrop-blur"
+            className="surface-card surface-card-hover transition-all cursor-pointer group"
             onClick={() => router.push("/saves")}
           >
             <CardContent className="pt-8 pb-8">
@@ -99,7 +144,7 @@ export default function Home() {
         </div>
 
         {/* 核心特性 */}
-        <Card className="bg-slate-800/30 border-slate-700/50 backdrop-blur">
+        <Card className="surface-card">
           <CardContent className="pt-6 pb-6">
             <div className="grid md:grid-cols-3 gap-6 text-sm">
               <div className="space-y-2">
@@ -114,10 +159,10 @@ export default function Home() {
               <div className="space-y-2">
                 <div className="flex items-center gap-2">
                   <Sparkles className="w-4 h-4 text-pink-400" />
-                  <span className="font-medium text-white">智能DM系统</span>
+                  <span className="font-medium text-white">动态叙事引擎</span>
                 </div>
                 <p className="text-gray-400 text-xs">
-                  AI地下城主动态响应玩家行动，创造独特的故事体验
+                  叙事引擎动态响应玩家行动，创造独特的故事体验
                 </p>
               </div>
               <div className="space-y-2">
@@ -144,15 +189,15 @@ export default function Home() {
               2️⃣ 点击"开始冒险"
             </div>
             <div className="px-4 py-2 bg-slate-800/50 rounded-lg border border-slate-700/50 text-gray-300">
-              3️⃣ 与AI DM互动游玩
-            </div>
+              3️⃣ 通过提示与叙事引擎互动
+          </div>
           </div>
           <Button
             size="lg"
             className="mt-6 text-lg px-8 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 shadow-xl"
-            onClick={() => router.push("/worlds")}
+            onClick={() => router.push(hasAutoSave ? "/game/play" : "/game/play?reset=true")}
           >
-            开始探索
+            {hasAutoSave ? "继续上次冒险" : "一键开始冒险"}
             <ArrowRight className="ml-2 h-5 w-5" />
           </Button>
         </div>

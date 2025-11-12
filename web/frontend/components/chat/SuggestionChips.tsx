@@ -61,9 +61,9 @@ export function SuggestionChips({
   return (
     <div className={cn('border rounded-lg overflow-hidden bg-background', className)}>
       {/* 标题栏 */}
-      <div className="flex items-center gap-2 px-4 py-2 bg-muted/50 border-b">
-        <Sparkles className="w-4 h-4 text-yellow-500" />
-        <span className="text-sm font-semibold">AI 建议</span>
+      <div className="flex items-center gap-2 px-3 py-1 bg-muted/50 border-b">
+        <Sparkles className="w-3.5 h-3.5 text-yellow-500" />
+        <span className="text-xs font-semibold">AI 建议</span>
         {onRefresh && (
           <Button
             variant="ghost"
@@ -80,7 +80,7 @@ export function SuggestionChips({
       {/* 建议列表 */}
       {isExpanded && (
         <ScrollArea className="w-full">
-          <div className="p-3 flex flex-wrap gap-2">
+          <div className="p-2 flex flex-wrap gap-1.5">
             {suggestions.map((suggestion) => {
               const category = suggestion.category || 'explore';
               const config = categoryConfig[category];
@@ -91,13 +91,13 @@ export function SuggestionChips({
                   onClick={() => onSelect(suggestion)}
                   disabled={isLoading}
                   className={cn(
-                    'inline-flex items-center gap-2 px-3 py-2 rounded-full border text-sm font-medium transition-all',
+                    'inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full border text-xs font-medium transition-all',
                     'hover:scale-105 active:scale-95',
                     'disabled:opacity-50 disabled:cursor-not-allowed',
                     config.color
                   )}
                 >
-                  <span className="text-base">{suggestion.icon || config.icon}</span>
+                  <span className="text-sm">{suggestion.icon || config.icon}</span>
                   <span>{suggestion.text}</span>
                   <ArrowRight className="w-3 h-3 opacity-50" />
                 </button>
@@ -106,7 +106,7 @@ export function SuggestionChips({
 
             {/* 加载状态 */}
             {isLoading && (
-              <div className="inline-flex items-center gap-2 px-3 py-2 rounded-full border bg-muted/50 text-sm">
+              <div className="inline-flex items-center gap-2 px-2.5 py-1.5 rounded-full border bg-muted/50 text-xs">
                 <RefreshCw className="w-3 h-3 animate-spin" />
                 <span className="text-muted-foreground">生成建议中...</span>
               </div>

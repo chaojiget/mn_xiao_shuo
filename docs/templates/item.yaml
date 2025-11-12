@@ -1,0 +1,36 @@
+# 物品模板（可投放到 LootTable）
+id: item.frostbite_dagger
+name: 霜噬短刃
+rarity: rare # common|uncommon|rare|epic|legendary|mythic
+type: weapon # weapon|armor|trinket|consumable|material|quest
+
+origin: "由迷雾集会以月影寒铁锻造，刀身吞霜。"
+affinity_tags: ["element:ice", "school:shadow", "faction:cabal"]
+
+mechanical_effects:
+  attack_bonus: 
+    flat: 2
+  on_hit:
+    apply_status: { id: status.chill, stacks: 1, max_stacks: 3, duration: 2 }
+
+narrative_hooks:
+  - "在月影升起时，对守望者的威慑加深（对话选项变化）"
+  - "持有者在古祭场景中能感应隐藏通道"
+
+usage_constraints:
+  requirements: ["skill.ice_affinity>=E", "no_heavy_armor"]
+  cooldown: 0
+  taboo: false
+
+synergy:
+  skills: ["skill.shadow_step", "skill.ice_lash"]
+  talents: ["talent.cold_blood"]
+
+drop_sources:
+  loot_tables: ["loot.dark_forest_elites"]
+  quests: ["quest.relic_hunt"]
+  pois: ["poi.shattered_altar"]
+
+versions:
+  - version: 1.0.0
+    balance_note: "初版：轻度控场，稀有掉落"

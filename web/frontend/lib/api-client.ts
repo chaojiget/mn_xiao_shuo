@@ -18,31 +18,38 @@ class ApiClient {
   /**
    * 通用请求方法（公开，允许直接调用）
    */
-  async request<T>(
-    endpoint: string,
-    options?: RequestInit
-  ): Promise<T> {
+  async request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     const url = `${this.baseUrl}${endpoint}`
 
-    try {
-      const response = await fetch(url, {
+    const doFetch = async (u: string) => {
+      const response = await fetch(u, {
         headers: {
           'Content-Type': 'application/json',
           ...options?.headers,
         },
         ...options,
       })
-
       if (!response.ok) {
-        const error = await response.json().catch(() => ({
-          message: response.statusText,
-        }))
+        const error = await response.json().catch(() => ({ message: response.statusText }))
         throw new Error(error.message || `请求失败: ${response.status}`)
       }
+      return response.json()
+    }
 
-      return await response.json()
+    try {
+      // 首选：使用 baseUrl（若提供）
+      return await doFetch(url)
     } catch (error) {
       console.error(`API 请求失败 [${endpoint}]:`, error)
+      // 回退：如果配置了 baseUrl，尝试同源代理（Next.js rewrites）
+      if (this.baseUrl && endpoint.startsWith('/')) {
+        try {
+          console.warn(`[api-client] 回退到同源请求: ${endpoint}`)
+          return await doFetch(endpoint)
+        } catch (e2) {
+          console.error(`[api-client] 回退失败 [${endpoint}]`, e2)
+        }
+      }
       throw error
     }
   }
@@ -412,6 +419,20 @@ class ApiClient {
    */
   async getWorld(worldId: string): Promise<any> {
     return this.request(`/api/world/scaffold/${worldId}`)
+  }
+
+  /**
+   * 列出世界（worlds_api 路由）
+   */
+  async getWorlds(): Promise<{ worlds: any[] }> {
+    return this.request(`/api/worlds/`)
+  }
+
+  /**
+   * 删除世界（worlds_api 路由）
+   */
+  async deleteWorld(worldId: string): Promise<{ success: boolean; message?: string }> {
+    return this.request(`/api/worlds/${worldId}`, { method: 'DELETE' })
   }
 
   /**

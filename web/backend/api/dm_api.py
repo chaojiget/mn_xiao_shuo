@@ -85,7 +85,7 @@ class DMStateRequest(BaseModel):
 async def process_dm_action(request: DMActionRequest):
     """处理玩家行动（非流式）
 
-    DM Agent 会分析玩家行动，调用相应工具，并生成场景描述
+    叙事引擎会分析玩家行动，调用相应工具，并生成场景描述
 
     Args:
         request: 包含 session_id, player_action, game_state
@@ -101,7 +101,7 @@ async def process_dm_action(request: DMActionRequest):
         }
     """
     if not dm_agent:
-        raise HTTPException(status_code=500, detail="DM Agent 未初始化")
+        raise HTTPException(status_code=500, detail="叙事引擎未初始化")
 
     try:
         result = await dm_agent.process_turn_sync(
@@ -116,7 +116,7 @@ async def process_dm_action(request: DMActionRequest):
         }
 
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"DM 处理失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"叙事引擎处理失败: {str(e)}")
 
 
 @router.get("/state/{session_id}")
@@ -135,7 +135,7 @@ async def get_dm_state(session_id: str):
         }
     """
     if not dm_agent:
-        raise HTTPException(status_code=500, detail="DM Agent 未初始化")
+        raise HTTPException(status_code=500, detail="叙事引擎未初始化")
 
     try:
         # 获取 DM Agent 配置信息
@@ -164,7 +164,7 @@ async def reset_dm_session(session_id: str):
         }
     """
     if not dm_agent:
-        raise HTTPException(status_code=500, detail="DM Agent 未初始化")
+        raise HTTPException(status_code=500, detail="叙事引擎未初始化")
 
     try:
         # 清除会话相关的状态（如果有）
@@ -208,7 +208,7 @@ async def dm_websocket(websocket: WebSocket, session_id: str):
     }
     """
     if not dm_agent:
-        await websocket.close(code=1011, reason="DM Agent 未初始化")
+        await websocket.close(code=1011, reason="叙事引擎未初始化")
         return
 
     await websocket.accept()
@@ -272,24 +272,24 @@ async def dm_websocket(websocket: WebSocket, session_id: str):
                                 player_action=player_action,
                                 game_state=game_state,
                             ):
-                            # 检查是否取消
-                            if cancel_event.is_set():
-                                logger.info(f"[DM WebSocket] 生成已取消")
-                                await websocket.send_json({
-                                    "type": "cancelled",
-                                    "message": "生成已被用户取消",
-                                })
-                                break
+                                # 检查是否取消
+                                if cancel_event.is_set():
+                                    logger.info(f"[DM WebSocket] 生成已取消")
+                                    await websocket.send_json({
+                                        "type": "cancelled",
+                                        "message": "生成已被用户取消",
+                                    })
+                                    break
 
-                            # 发送事件到客户端
-                            await websocket.send_json(event)
-                            # 统计
-                            if isinstance(event, dict):
-                                et = event.get("type")
-                                if et == "narration":
-                                    _narration_len += len(event.get("content") or "")
-                                elif et == "tool_call":
-                                    _tool_count += 1
+                                # 发送事件到客户端
+                                await websocket.send_json(event)
+                                # 统计
+                                if isinstance(event, dict):
+                                    et = event.get("type")
+                                    if et == "narration":
+                                        _narration_len += len(event.get("content") or "")
+                                    elif et == "tool_call":
+                                        _tool_count += 1
 
                     except asyncio.CancelledError:
                         logger.info(f"[DM WebSocket] 生成被取消")

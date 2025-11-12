@@ -2,6 +2,7 @@
 
 import asyncio
 import json
+from utils.json_utils import json_loads_relaxed
 from pathlib import Path
 
 
@@ -152,7 +153,7 @@ async def generate_with_agent(title: str, novel_type: str, user_prompt: str = No
 
         # 解析 JSON
         try:
-            data = json.loads(content)
+            data = json_loads_relaxed(content)
             return {
                 "success": True,
                 "setting": {

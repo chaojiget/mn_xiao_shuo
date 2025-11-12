@@ -57,3 +57,26 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* 视觉层级优化：统一页面背景与卡片基座 */
+@layer utilities {
+  .app-gradient {
+    @apply bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950;
+  }
+  .surface-card {
+    @apply bg-slate-900/60 backdrop-blur-sm border border-slate-700/50;
+  }
+  .surface-card-hover {
+    @apply hover:bg-slate-900/70 hover:border-slate-600/50 transition-colors;
+  }
+  .no-scrollbar {
+    /* Chrome, Safari */
+    &::-webkit-scrollbar {
+      display: none;
+    }
+    /* Firefox */
+    scrollbar-width: none;
+    /* IE/Edge */
+    -ms-overflow-style: none;
+  }
+}

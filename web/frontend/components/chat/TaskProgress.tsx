@@ -41,6 +41,7 @@ interface TaskProgressProps {
   tasks: Task[];
   title?: string;
   className?: string;
+  defaultExpanded?: boolean;
 }
 
 const typeIcons: Record<NonNullable<Task['type']>, ComponentType<{ className?: string }>> = {
@@ -83,8 +84,8 @@ const formatDuration = (durationMs?: number) => {
   return `${(durationMs / 1000).toFixed(1)}s`;
 };
 
-export function TaskProgress({ tasks, title = 'AI 工作进度', className }: TaskProgressProps) {
-  const [isExpanded, setIsExpanded] = useState(true);
+export function TaskProgress({ tasks, title = 'AI 工作进度', className, defaultExpanded = true }: TaskProgressProps) {
+  const [isExpanded, setIsExpanded] = useState(defaultExpanded);
 
   const completedCount = tasks.filter((t) => t.status === 'completed').length;
   const totalCount = tasks.length;

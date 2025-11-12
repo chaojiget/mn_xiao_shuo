@@ -15,6 +15,7 @@
 
 ### 功能与实现
 - `docs/features/GAME_UI_GUIDE.md` - 游戏UI指南
+- `docs/features/NARRATIVE_ASSET_PRODUCTION.md` - 叙事资产生产规范与复用模板
 - `docs/implementation/PHASE2_API_ENDPOINTS.md` - API端点文档
 - `docs/implementation/GLOBAL_DIRECTOR_IMPLEMENTATION.md` - 全局导演实现
 

@@ -1,14 +1,14 @@
 # AI 世界生成与跑团游戏 - 项目状态
 
 **最后更新**: 2025-11-11
-**当前版本**: v1.2 (WorldPack + DM WebSocket + 存档)
+**当前版本**: v1.2 (WorldPack + 叙事 WebSocket + 存档)
 **总代码量**: ~18,000+ 行
 
 ---
 
 ## 🎯 项目概览
 
-这是一个基于 AI 的世界生成与单人跑团游戏系统。核心包括 WorldPack 预生成世界、LangChain 驱动的 DM Agent（支持 15+ 游戏工具）、实时流式对话（WebSocket）与完整的存档系统。
+这是一个基于 AI 的世界生成与单人跑团游戏系统。核心包括 WorldPack 预生成世界、LangChain 驱动的叙事引擎（支持 15+ 游戏工具）、实时流式对话（WebSocket）与完整的存档系统。
 
 **核心特性**:
 - ✅ Global Director 智能事件调度
@@ -26,7 +26,7 @@
 |------|------|--------|------|
 | **Global Director** | ✅ 完成 | 100% | 事件评分 + 一致性审计 + 线索经济 |
 | **Phase 2 游戏系统** | ✅ 完成 | 100% | 15个MCP工具 + 数据库 + API |
-| **游戏界面** | ✅ 完成 | 100% | DM界面 + 任务 + NPC + 状态面板 |
+| **游戏界面** | ✅ 完成 | 100% | 叙事界面 + 任务 + NPC + 状态面板 |
 | **世界脚手架** | ✅ 完成 | 100% | 世界生成 + 场景细化 + Canon |
 | **存档系统** | ✅ 完成 | 100% | 10槽位 + 快照 + 自动保存 |
 | **WebSocket** | ✅ 完成 | 100% | `WS /api/dm/ws/{session_id}` 已上线 |
@@ -97,11 +97,11 @@ GlobalDirector
 **后端 API** (22个端点):
 - 任务系统 API (5个)
 - NPC系统 API (4个)
-- DM Agent API (7个)
+- 叙事引擎 API (7个)
 - 存档系统 API (6个)
 
 **前端组件** (5个):
-- `DmInterface` - DM交互界面（WebSocket实时）
+- `NarrativeInterface` - 叙事交互界面（WebSocket实时）
 - `QuestTracker` - 任务追踪器
 - `NpcDialog` - NPC对话组件
 - `GameStatePanel` - 游戏状态面板
@@ -162,7 +162,7 @@ mn_xiao_shuo/
 ├── web/backend/
 │   ├── agents/                   # Agent 系统
 │   │   ├── game_tools_mcp.py     # 15个MCP工具
-│   │   └── dm_agent.py           # DM Agent
+│   │   └── dm_agent.py           # 叙事引擎 Agent
 │   ├── api/                      # API 端点
 │   │   ├── game_api.py           # 游戏API (22个端点)
 │   │   └── dm_api.py             # DM API
@@ -173,7 +173,7 @@ mn_xiao_shuo/
 │   └── models/                   # 数据模型
 ├── web/frontend/
 │   ├── components/game/          # 游戏组件 (5个)
-│   │   ├── DmInterface.tsx
+│   │   ├── NarrativeInterface.tsx
 │   │   ├── QuestTracker.tsx
 │   │   ├── NpcDialog.tsx
 │   │   └── GameStatePanel.tsx

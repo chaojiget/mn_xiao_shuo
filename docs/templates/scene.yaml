@@ -1,0 +1,52 @@
+# 场景模板（地点/POI/任务目标可复用的叙事节拍）
+id: scene.mist_ambush
+kind: exploration  # exploration|combat|social|puzzle|event
+
+location_bindings:
+  biomes: ["forest"]
+  pois: ["poi.shattered_altar", "poi.hunters_camp"]
+  time_of_day: ["night", "dusk"]
+  weather: ["mist", "light_rain"]
+
+triggers:
+  - "enter_poi:first_time"
+  - "quest.relic_hunt.objective.scan_altar.active"
+
+actors:
+  - id: npc.mist_stalker
+    stance: hostile
+  - id: player
+    stance: cautious
+
+beats:
+  - setup: "雾线悄然推近，树影交错"
+  - conflict: "暗影掠过耳畔，伏击自侧面袭来"
+  - twist: "祭坛下有微弱月影脉动，影响行动判定"
+  - resolution: "清理伏击后可开启隐匿通道，或选择撤离"
+
+checks:
+  - skill: skill.shadow_step
+    usage: "位移至高位，绕开伏击"
+    difficulty: medium
+    failure: "跌入腐叶坑，获得‘泥沼’减速1回合"
+  - skill: skill.ice_lash
+    usage: "定住薄影形成突破口"
+    difficulty: hard
+
+outcomes:
+  rewards:
+    items: [{ id: item.frostbite_dagger, chance: 0.05 }]
+    reputation: [{ faction: faction.wardens, delta: 2 }]
+  world_changes:
+    lore_unlocks: ["lore.moon_vein"]
+    poi_updates: ["poi.shattered_altar:revealed_passage"]
+
+reuse_strategy:
+  reskin_params: ["ambusher_species", "altar_artifacts"]
+  difficulty_scale:
+    story: "减少伏击数量，放宽检定"
+    hard: "增加二次伏击与天气惩罚"
+
+versions:
+  - version: 1.0.0
+    balance_note: "探索向伏击+软谜题，夜晚增强"

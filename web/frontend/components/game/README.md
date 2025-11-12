@@ -1,15 +1,15 @@
 # 游戏组件文档
 
-React/Next.js 游戏界面组件，用于单人跑团游戏（DM Agent 模式）。
+React/Next.js 游戏界面组件，用于单人跑团游戏（叙事引擎模式）。
 
 ## 组件列表
 
-### 1. DmInterface - DM 交互界面
+### 1. NarrativeInterface - 叙事交互界面
 
-**文件**: `DmInterface.tsx`
+**文件**: `NarrativeInterface.tsx`
 
 **功能**:
-- 聊天界面显示 DM 叙述和玩家输入
+- 聊天界面显示 旁白叙述 和玩家输入
 - WebSocket 实时连接（自动降级到 HTTP）
 - 流式文本显示
 - 工具调用可视化
@@ -25,9 +25,9 @@ React/Next.js 游戏界面组件，用于单人跑团游戏（DM Agent 模式）
 
 **使用示例**:
 ```tsx
-import { DmInterface } from '@/components/game';
+import { NarrativeInterface } from '@/components/game';
 
-<DmInterface sessionId={sessionId} />
+<NarrativeInterface sessionId={sessionId} />
 ```
 
 **API 依赖**:
@@ -189,7 +189,7 @@ function MyComponent() {
 - `NPC` - NPC
 - `InventoryItem` - 物品
 - `NPCRelationship` - NPC 关系
-- `DmMessage` - DM 消息
+- `DmMessage` - 叙事消息（类型名保留以兼容现有代码）
 
 ---
 
@@ -202,7 +202,7 @@ function MyComponent() {
 ┌─────────────────────────────────────────────────┐
 │ 顶部工具栏 (保存/退出)                           │
 ├─────────┬──────────────────────┬────────────────┤
-│ 左侧栏  │   DM 界面 (主要)     │   右侧栏        │
+│ 左侧栏  │   叙事界面 (主要)    │   右侧栏        │
 │         │                      │                │
 │ 游戏    │   - 消息历史         │   - 任务追踪    │
 │ 状态    │   - 流式叙述         │   - NPC 列表    │
@@ -215,8 +215,8 @@ function MyComponent() {
 
 **响应式设计**:
 - **桌面 (lg+)**: 三栏布局，所有功能可见
-- **平板**: 主 DM 界面 + 底部导航
-- **手机**: 全屏 DM 界面 + 底部导航
+- **平板**: 主 叙事界面 + 底部导航
+- **手机**: 全屏 叙事界面 + 底部导航
 
 ---
 

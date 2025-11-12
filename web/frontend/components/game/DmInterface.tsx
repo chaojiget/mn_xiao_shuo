@@ -45,6 +45,184 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
   const taskCounterRef = useRef<number>(0); // 🔥 任务计数器，确保唯一 ID
   const thinkingCounterRef = useRef<number>(0); // 🔥 思考步骤计数器
 
+  const getSafeToolName = (name?: string) => {
+    if (!name) return '未知工具';
+    const trimmed = String(name).trim();
+    return trimmed.length > 0 ? trimmed : '未知工具';
+  };
+
+  const parseToolInput = (payload: unknown) => {
+    if (payload === undefined || payload === null || payload === '') {
+      return {};
+    }
+
+    if (typeof payload === 'string') {
+      const trimmed = payload.trim();
+      if (!trimmed) {
+        return {};
+      }
+
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          return JSON.parse(trimmed);
+        } catch (error) {
+          console.warn('[DmInterface] 无法解析工具参数 JSON:', error);
+          return trimmed;
+        }
+      }
+
+      return trimmed;
+    }
+
+    return payload;
+  };
+
+  const parseToolOutput = (payload: unknown) => {
+    if (payload === undefined) {
+      return undefined;
+    }
+
+    if (typeof payload === 'string') {
+      const trimmed = payload.trim();
+      if (!trimmed) {
+        return '';
+      }
+
+      if (
+        (trimmed.startsWith('{') && trimmed.endsWith('}')) ||
+        (trimmed.startsWith('[') && trimmed.endsWith(']'))
+      ) {
+        try {
+          return JSON.parse(trimmed);
+        } catch (error) {
+          console.warn('[DmInterface] 无法解析工具输出 JSON:', error);
+          return trimmed;
+        }
+      }
+
+      return trimmed;
+    }
+
+    return payload;
+  };
+
+  const stringifyToolPayload = (payload: unknown) => {
+    if (payload === undefined) {
+      return '';
+    }
+
+    if (payload === null) {
+      return 'null';
+    }
+
+    if (typeof payload === 'string') {
+      return payload;
+    }
+
+    try {
+      return JSON.stringify(payload, null, 2);
+    } catch (error) {
+      console.warn('[DmInterface] 无法序列化工具数据:', error);
+      return String(payload);
+    }
+  };
+
+  const appendToolTask = (toolName: string, rawInput: unknown) => {
+    taskCounterRef.current += 1;
+    const timestamp = Date.now();
+    const normalizedInput = parseToolInput(rawInput);
+
+    const newTask: Task = {
+      id: `task_${timestamp}_${taskCounterRef.current}`,
+      title: `工具调用: ${toolName}`,
+      status: 'in_progress',
+      type: 'tool_call',
+      timestamp,
+      toolName,
+      toolInput: normalizedInput,
+    };
+
+    setTasks((prev) => [...prev, newTask].slice(-10));
+
+    return { normalizedInput, timestamp };
+  };
+
+  const completeToolTask = (toolName: string, rawOutput: unknown, errorMessage?: string) => {
+    const normalizedOutput = parseToolOutput(rawOutput);
+
+    setTasks((prev) => {
+      const updated = [...prev];
+      let updatedTask = false;
+
+      for (let i = updated.length - 1; i >= 0; i -= 1) {
+        const task = updated[i];
+        if (
+          task.type === 'tool_call' &&
+          task.status === 'in_progress' &&
+          (task.toolName === toolName || task.toolName === '未知工具')
+        ) {
+          const durationMs = task.timestamp ? Date.now() - task.timestamp : undefined;
+          updated[i] = {
+            ...task,
+            status: errorMessage ? 'error' : 'completed',
+            toolOutput: normalizedOutput,
+            durationMs,
+            error: errorMessage,
+          };
+          updatedTask = true;
+          break;
+        }
+      }
+
+      if (!updatedTask) {
+        for (let i = updated.length - 1; i >= 0; i -= 1) {
+          const task = updated[i];
+          if (task.type === 'tool_call' && task.status === 'in_progress') {
+            const durationMs = task.timestamp ? Date.now() - task.timestamp : undefined;
+            updated[i] = {
+              ...task,
+              status: errorMessage ? 'error' : 'completed',
+              toolOutput: normalizedOutput,
+              durationMs,
+              error: errorMessage,
+            };
+            updatedTask = true;
+            break;
+          }
+        }
+      }
+
+      return updated;
+    });
+
+    return normalizedOutput;
+  };
+
+  const addToolCallMessage = (toolName: string, payload: unknown) => {
+    const uniqueId = `${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const toolMessage: DmMessage = {
+      id: uniqueId,
+      role: 'assistant',
+      content: `使用工具: ${toolName}`,
+      timestamp: Date.now(),
+      tool_calls: [
+        {
+          id: `${uniqueId}_call`,
+          type: 'function',
+          function: {
+            name: toolName,
+            arguments: stringifyToolPayload(payload),
+          },
+        },
+      ],
+    };
+
+    setMessages((prev) => [...prev, toolMessage]);
+  };
+
   const { gameState, setGameState, isConnected, setIsConnected, setError } = useGameStore();
 
   // 从 gameState.log 恢复历史消息
@@ -178,45 +356,23 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
         break;
 
       case 'tool_call':
-        const toolMessage: DmMessage = {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: `使用工具: ${data.tool_name}`,
-          timestamp: Date.now(),
-          tool_calls: [
-            {
-              id: Date.now().toString(),
-              type: 'function',
-              function: {
-                name: data.tool_name,
-                arguments: JSON.stringify(data.arguments || {})
-              }
-            },
-          ],
-        };
-        setMessages((prev) => [...prev, toolMessage]);
-
-        // 添加到任务列表
-        taskCounterRef.current += 1; // 🔥 增加计数器
-        const newTask: Task = {
-          id: `task_${Date.now()}_${taskCounterRef.current}`,
-          title: `工具调用: ${data.tool_name}`,
-          status: 'in_progress',
-          type: 'code',
-          timestamp: Date.now(),
-        };
-        setTasks((prev) => [...prev, newTask]);
+        {
+          const rawName = data.tool_name || data.tool;
+          const safeName = getSafeToolName(rawName);
+          const args = data.arguments ?? data.input ?? {};
+          const { normalizedInput } = appendToolTask(safeName, args);
+          addToolCallMessage(safeName, normalizedInput);
+        }
         break;
 
       case 'tool_result':
-        // 更新任务状态为完成
-        setTasks((prev) =>
-          prev.map((task) =>
-            task.status === 'in_progress'
-              ? { ...task, status: 'completed' as const }
-              : task
-          )
-        );
+        {
+          const rawName = data.tool_name || data.tool;
+          const safeName = getSafeToolName(rawName);
+          const output = data.output ?? data.result;
+          const errorMessage = typeof data.error === 'string' ? data.error : undefined;
+          completeToolTask(safeName, output, errorMessage);
+        }
         break;
 
       case 'state_update':
@@ -327,23 +483,15 @@ export function DmInterface({ sessionId, className }: DmInterfaceProps) {
                 fullNarration += data.content;
                 setStreamingText(fullNarration);
               } else if (data.type === 'tool_call') {
-                taskCounterRef.current += 1; // 🔥 增加计数器
-                const newTask: Task = {
-                  id: `task_${Date.now()}_${taskCounterRef.current}`,
-                  title: `工具调用: ${data.tool}`,
-                  status: 'in_progress',
-                  type: 'code',
-                  timestamp: Date.now(),
-                };
-                setTasks((prev) => [...prev, newTask]);
+                const safeName = getSafeToolName(data.tool || data.tool_name);
+                const args = data.input ?? data.arguments ?? {};
+                const { normalizedInput } = appendToolTask(safeName, args);
+                addToolCallMessage(safeName, normalizedInput);
               } else if (data.type === 'tool_result') {
-                setTasks((prev) =>
-                  prev.map((task) =>
-                    task.status === 'in_progress'
-                      ? { ...task, status: 'completed' as const }
-                      : task
-                  )
-                );
+                const safeName = getSafeToolName(data.tool || data.tool_name);
+                const output = data.output ?? data.result;
+                const errorMessage = typeof data.error === 'string' ? data.error : undefined;
+                completeToolTask(safeName, output, errorMessage);
               } else if (data.type === 'state') {
                 // 更新游戏状态
                 if (data.state) {

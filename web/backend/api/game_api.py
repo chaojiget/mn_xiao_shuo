@@ -10,6 +10,7 @@ from fastapi import APIRouter, HTTPException
 from fastapi.responses import StreamingResponse
 from game.game_engine import GameEngine, GameTurnRequest, GameTurnResponse
 from game.game_tools import GameState
+from ..database.game_state_db import GameStateManager
 from pydantic import BaseModel
 from services.save_service import SaveService
 from utils.logger import get_logger
@@ -23,14 +24,31 @@ game_engine: Optional[GameEngine] = None
 # 全局存档服务实例
 save_service: Optional[SaveService] = None
 
+# 全局游戏状态管理器实例
+game_state_manager: Optional[GameStateManager] = None
+
 
 def init_game_engine(llm_client, db_path: str = None):
     """初始化游戏引擎和存档服务"""
-    global game_engine, save_service
+    global game_engine, save_service, game_state_manager
     game_engine = GameEngine(llm_client, db_path=db_path)
 
-    # 初始化存档服务
+    # 初始化状态/存档服务
     if db_path:
+        try:
+            game_state_manager = GameStateManager(db_path)
+        except Exception as exc:
+            logger.error("❌ 初始化 GameStateManager 失败: %s", exc)
+            raise
+
+        try:
+            from agents import game_tools_langchain
+
+            game_tools_langchain.init_state_manager(db_path)
+        except Exception as exc:
+            # 不中断启动，但记录日志
+            logger.warning("⚠️  初始化游戏状态缓存失败: %s", exc)
+
         save_service = SaveService(db_path)
 
 
@@ -250,15 +268,69 @@ async def process_turn_stream(request: GameTurnRequestModel):
 @router.get("/state/{game_id}")
 async def get_game_state(game_id: str):
     """获取游戏状态（从数据库）"""
-    # TODO: 从数据库加载游戏状态
-    raise HTTPException(status_code=501, detail="暂未实现数据库存储")
+    if not game_state_manager:
+        raise HTTPException(status_code=500, detail="游戏状态管理器未初始化")
+
+    try:
+        state = None
+
+        try:
+            from agents import game_tools_langchain
+
+            if game_tools_langchain.state_cache is not None:
+                state = game_tools_langchain.state_cache.get_state(game_id)
+        except Exception as cache_error:
+            logger.warning("⚠️  从状态缓存获取游戏状态失败: %s", cache_error)
+
+        if state is None:
+            state = game_state_manager.get_session_state(game_id)
+
+        if state is None:
+            raise HTTPException(status_code=404, detail=f"游戏状态 {game_id} 不存在")
+
+        return {
+            "success": True,
+            "game_id": game_id,
+            "state": state,
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("❌ 获取游戏状态失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"获取游戏状态失败: {exc}")
 
 
 @router.post("/state/{game_id}")
 async def save_game_state(game_id: str, state: Dict[str, Any]):
     """保存游戏状态到数据库"""
-    # TODO: 保存游戏状态到数据库
-    raise HTTPException(status_code=501, detail="暂未实现数据库存储")
+    if not game_state_manager:
+        raise HTTPException(status_code=500, detail="游戏状态管理器未初始化")
+
+    try:
+        saved = game_state_manager.save_session_state(game_id, state)
+        if not saved:
+            raise HTTPException(status_code=500, detail="保存游戏状态失败")
+
+        try:
+            from agents import game_tools_langchain
+
+            if game_tools_langchain.state_cache is not None:
+                game_tools_langchain.state_cache.save_state(game_id, state)
+        except Exception as cache_error:
+            logger.warning("⚠️  更新状态缓存失败: %s", cache_error)
+
+        return {
+            "success": True,
+            "game_id": game_id,
+            "message": "游戏状态已保存",
+        }
+
+    except HTTPException:
+        raise
+    except Exception as exc:
+        logger.error("❌ 保存游戏状态失败: %s", exc, exc_info=True)
+        raise HTTPException(status_code=500, detail=f"保存游戏状态失败: {exc}")
 
 
 @router.get("/tools")
